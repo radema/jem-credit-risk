@@ -10,9 +10,27 @@
 
 ## Project Overview
 
-This repository contains the implementation of a Joint Energy-Based Model (JEM) applied to the Home Credit - Credit Risk Model Stability (Kaggle 2024) dataset.
+This repository contains the implementation of a **Joint Energy-Based Model (JEM)** applied to the [Home Credit - Credit Risk Model Stability](https://www.kaggle.com/competitions/home-credit-credit-risk-model-stability) Kaggle competition.
 
-The objective is to move beyond standard discriminative classification by training a neural network that simultaneously learns the conditional probability of default $p(y|x)$ and the marginal data distribution $p(x)$. By learning the energy landscape of the feature space, the model provides a built-in mechanism to detect temporal distribution shifts (Out-Of-Distribution data) via scalar energy spikes.
+The project moves beyond standard discriminative classification by training a neural network that simultaneously learns the conditional probability of default $p(y|x)$ and the marginal data distribution $p(x)$. By learning the energy landscape of the feature space, the model provides a built-in mechanism to detect temporal distribution shifts (Out-Of-Distribution data) via scalar energy spikes.
+
+### 🎯 Key Objectives
+
+*   **Primary Goal**: Implement a JEM to classify default risk while simultaneously learning the marginal distribution of normal client profiles.
+*   **Data Engineering**: Design a declarative, memory-efficient data pipeline using **Polars** (LazyFrame API) to aggregate deep relational tables (Bureau, Person, etc.) into a flat feature matrix without Out-Of-Memory (OOM) exceptions.
+*   **MLOps & Monitoring**: Utilize the JEM's energy output to track distribution shifts and visualize temporal decay across the `MONTH` dimension.
+*   **Benchmarking**: Achieve competitive **Gini Stability** (competition metric) and AUC metrics against public leaderboard baselines.
+
+### 🏗️ Architecture & Data Flow
+
+For a detailed technical breakdown of the mathematical framework, data engineering pipeline, and SGLD sampling strategy, please refer to the **[ARCHITECTURE.md](./ARCHITECTURE.md)** document.
+
+### 🛠️ Development Constraints
+
+*   **Technology Stack**: Python (PyTorch for modeling, Polars for data engineering).
+*   **Design Principles**: Adhere strictly to SOLID/DRY principles. Code must be highly modular and type-hinted.
+*   **Environment**: Developed locally via **Antigravity**, ensuring seamless execution as a Kaggle script.
+
 
 ## Technology Stack
 
@@ -68,9 +86,19 @@ pip install -r requirements.txt
 
 Download the Home Credit competition data and place the parquet files in data/raw/.
 
+## Core Modules
+
+The codebase will be split into three core modules. This separation of concerns ensures the complex data engineering does not pollute the mathematical modeling.
+
+**data.py**: Utilizes polars.LazyFrame for out-of-core feature engineering. Implements a clean, chainable API for aggregating nested historical data, handling high-cardinality categoricals, and exporting normalized torch.Tensor datasets.
+
+**jem.py**: Contains the TabularJEM class (the PyTorch neural network) and the SGLDSampler class (handles the MCMC sampling and Replay Buffer logic).
+
+**train.py**: The training orchestrator. Handles the PyTorch DataLoader, computes the combined loss $\mathcal{L} = \mathcal{L}_{clf} + \lambda \mathcal{L}_{energy}$, and logs validation AUC and energy distribution histograms across temporal splits.
+
 ## Development Workflow
 
-Step 1: Run src/data.py to ingest the relational tables, aggregate features using Polars, and export scaled tensors.
+Step 1: Run src/data.py to ingest the relational tables, aggregate features using Polars, and export scaled tensors. 
 
 Step 2: Run src/jem.py as a standalone script to execute unit tests verifying the SGLD backward passes.
 
