@@ -44,7 +44,7 @@ def test_milestone_3():
 
     # Try join
     final_lazy = join_to_base(
-        base_lazy.filter(pl.col("case_id").is_in(valid_cases_df["case_id"])),
+        base_lazy.filter(pl.col("case_id").is_in(valid_cases_df["case_id"].implode())),
         {"bureau_a": bureau_flattened},
     )
     print(f"Final Joined Schema Length: {len(final_lazy.collect_schema())}")
