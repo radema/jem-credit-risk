@@ -10,9 +10,9 @@ This document outlines the phased, engineering-focused approach to implementing 
 
 **Action 2:** Declarative Aggregations. Use polars.LazyFrame to build the join logic across the base, person, and bureau tables. Focus on temporal aggregations (e.g., max, mean, var over historical applications).
 
-**Action 3:** Strict Normalization. Implement standard scaling fit strictly on the training fold. Energy-Based Models (EBMs) and SGLD are hyper-sensitive to the scale of the input manifold; unscaled features will cause gradients to explode.
+**Action 3:** Categorical Encoding & Dataset Export. Save the aggregated, unscaled data to parquet. Standard scaling is purposely postponed (Out of Scope for this phase) to avoid data leakage before Cross Validation.
 
-**Output:** Scaled, joined torch.Tensor objects saved locally.
+**Output:** Joined, aggregated, unscaled datasets saved locally.
 
 ## Phase 2: Local Model Implementation (PyTorch)
 
@@ -30,7 +30,7 @@ This document outlines the phased, engineering-focused approach to implementing 
 
 **Goal:** Combine the data pipeline and model into a functional dual-objective training loop.
 
-**Action 1:** Dual Objective Loss. Formulate the loss function: $\mathcal{L} = \mathcal{L}_{clf} + \lambda \mathcal{L}_{energy}$. Tune $\lambda$ (the generative weight) carefully so the generative task does not overpower the discriminative task.
+**Action 1:** Data Preparation & Normalization. Implement the standard scaling fit strictly on the training fold (postponed from Phase 1 to prevent data leakage). Then formulate the dual objective loss: $\mathcal{L} = \mathcal{L}_{clf} + \lambda \mathcal{L}_{energy}$. Tune $\lambda$ (the generative weight) carefully so the generative task does not overpower the discriminative task.
 
 **Action 2:** Metric Tracking. Track Area Under the Precision-Recall Curve (AUPRC) and Gini Stability for the supervised task. Simultaneously, track the mean energies of real vs. fake samples.
 

@@ -2,3 +2,6 @@
 uv.lock
 .venv/
 skills-lock.json
+.cache/
+.cache_test/
+__pycache__
