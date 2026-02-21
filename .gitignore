@@ -1,3 +1,4 @@
-data/
+*.zip
 uv.lock
 .venv/
+skills-lock.json
