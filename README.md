@@ -1,5 +1,13 @@
 # Joint Energy-Based Model (JEM) for Credit Risk Stability
 
+![Python](https://img.shields.io/badge/python-v3.10+-blue?style=flat-square&logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
+![Polars](https://img.shields.io/badge/Polars-FFD43B?style=flat-square&logo=polars&logoColor=black)
+![Framework](https://img.shields.io/badge/Framework-JEM-7B61FF?style=flat-square)
+![SGLD](https://img.shields.io/badge/Sampling-SGLD-00F2FF?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+
+
 ## Project Overview
 
 This repository contains the implementation of a Joint Energy-Based Model (JEM) applied to the Home Credit - Credit Risk Model Stability (Kaggle 2024) dataset.
@@ -13,7 +21,7 @@ The objective is to move beyond standard discriminative classification by traini
 - Machine Learning: torch (PyTorch for MLP architecture, custom loss functions, and Langevin Dynamics)
 - Metrics: Area Under the Precision-Recall Curve (AUPRC), Gini Stability, Energy Histograms.
 
-## Mathematical Context (For AI Assistants / Antigravity)
+## Mathematical Context
 
 This project strictly follows the JEM framework (Grathwohl et al., 2019). The architecture reuses standard classifier logits to compute both classification and generative objectives.
 
@@ -76,5 +84,6 @@ Step 3: Run src/train.py to initiate the dual-objective training loop.
 
 ## References
 
-- Grathwohl, W., et al. (2020). Your Classifier is Secretly an Energy Based Model. ICLR.
-- Du, Y., & Mordatch, I. (2019). Implicit Generation and Generalization in Energy-Based Models. NeurIPS.
+- Grathwohl, W., et al. (2020). Your Classifier is Secretly an Energy Based Model. ICLR. - * Defines the joint optimization of $p(y|x)$ and $p(x)$. *
+- Du, Y., & Mordatch, I. (2019). Implicit Generation and Generalization in Energy-Based Models. NeurIPS. - *Essential reading for implementing the Replay Buffer correctly.*
+- Network Geometry: Spontaneous Kolmogorov-Arnold Geometry in Shallow MLPs (Freedman & Mulligan, arXiv:2509.12326). - *Understanding that your MLP's energy landscape spontaneously forms ridged, Kolmogorov-Arnold-like geometries will assist in debugging SGLD chain stagnation.*
