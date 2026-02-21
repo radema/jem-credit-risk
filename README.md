@@ -50,7 +50,7 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 │   ├── data.py              # Polars feature engineering and temporal aggregations
 │   ├── jem.py               # PyTorch TabularJEM architecture and SGLDSampler
 │   └── train.py             # Training loop, loss formulation, and metric logging
-├── requirements.txt
+├── pyproject.toml
 └── README.md
 ```
 
