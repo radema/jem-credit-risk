@@ -14,9 +14,9 @@ def test_milestone_1():
     cache_dir = ".cache_test"
 
     config = DataPipelineConfig(
-        data_dir="data/raw/home-credit-credit-risk-model-stability.zip",
+        data_dir=zip_path,
         sample_ratio=0.001,
-        cache_dir=".cache",
+        cache_dir=cache_dir,
     )
 
     # 1. Unpack
@@ -31,7 +31,7 @@ def test_milestone_1():
     assert isinstance(df_lazy, pl.LazyFrame), "Did not return a LazyFrame"
     print("Successfully scanned train_base as LazyFrame.")
     print("Schema Snippet:")
-    print(df_lazy.schema)
+    print(df_lazy.collect_schema())
 
 
 if __name__ == "__main__":

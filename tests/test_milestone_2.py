@@ -14,7 +14,7 @@ def test_milestone_2():
 
     config = DataPipelineConfig(
         data_dir=zip_path,
-        sample_ratio=0.01,  # extremely small sample for quick testing
+        sample_ratio=0.0001,  # extremely small sample for quick testing
         cache_dir=cache_dir,
     )
 

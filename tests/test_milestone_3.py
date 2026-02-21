@@ -1,3 +1,4 @@
+import polars as pl
 from src.data.config import DataPipelineConfig
 from src.data.unpack import extract_relevant_parquets
 from src.data.loader import scan_table
@@ -14,7 +15,9 @@ def test_milestone_3():
     cache_dir = ".cache_test"
 
     config = DataPipelineConfig(
-        data_dir=zip_path, sample_ratio=0.01, cache_dir=cache_dir
+        data_dir=zip_path,
+        sample_ratio=0.0001,
+        cache_dir=cache_dir,
     )
 
     new_dir = extract_relevant_parquets(config.data_dir, config.cache_dir)
@@ -41,7 +44,7 @@ def test_milestone_3():
 
     # Try join
     final_lazy = join_to_base(
-        base_lazy.filter(base_lazy.select("case_id").is_in(valid_cases_df["case_id"])),
+        base_lazy.filter(pl.col("case_id").is_in(valid_cases_df["case_id"])),
         {"bureau_a": bureau_flattened},
     )
     print(f"Final Joined Schema Length: {len(final_lazy.collect_schema())}")
