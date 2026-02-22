@@ -7,6 +7,7 @@ from src.data.unpack import extract_relevant_parquets
 from src.data.loader import scan_table
 from src.data.sampling import generate_stratified_sample
 from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
+from src.data.imputation import handle_missing_and_categoricals
 from src.data.export import evaluate_eda_stats, export_to_parquet
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,11 @@ def run_pipeline(
     )
     final_df = final_lazy.collect(engine="streaming")
 
-    # 6. EDA & Export
+    # 6. Imputation & Categorical Encoding
+    logger.info("Handling missing values and frequency encoding categoricals...")
+    final_df = handle_missing_and_categoricals(final_df)
+
+    # 7. EDA & Export
     logger.info("Execution complete. Proceeding to EDA and Export.")
     evaluate_eda_stats(final_df, "data/processed/feature_statistics.log")
     export_to_parquet(final_df, "data/processed/train_features_unscaled.parquet")

@@ -1,4 +1,5 @@
 import torch
+from src.model.jem.config import JEMConfig
 
 
 class SGLDReplayBuffer:
@@ -102,3 +103,66 @@ class SGLDReplayBuffer:
 
             self.pointer = overflow
             self.is_full = True
+
+
+class SGLDSampler:
+    """
+    Stochastic Gradient Langevin Dynamics (SGLD) sampler.
+    Generates samples from the model's energy distribution by performing
+    gradient descent on the model energy (which corresponds to gradient
+    ascent on the log-probability).
+    """
+
+    def __init__(self, config: JEMConfig):
+        """
+        Initializes the SGLD sampler.
+
+        Args:
+            config (JEMConfig): Configuration object containing SGLD hyperparameters.
+        """
+        self.config = config
+
+    def generate(
+        self, model: torch.nn.Module, buffer: SGLDReplayBuffer, batch_size: int
+    ) -> torch.Tensor:
+        """
+        Generates fake samples using the Langevin loop.
+        The samples are initialized from the buffer/noise and then iteratively
+        moved towards lower energy regions.
+
+        Args:
+            model (nn.Module): The JEM model that computes energy.
+            buffer (SGLDReplayBuffer): Buffer to seed initialization and store results.
+            batch_size (int): Number of samples to generate.
+
+        Returns:
+            torch.Tensor: Generated fake samples (detached from graph).
+        """
+        # 1. Initialize samples from buffer (95%) or uniform noise (5%)
+        x_init = buffer.sample(batch_size)
+
+        # Get device from model parameters
+        device = next(model.parameters()).device
+        x_fake = x_init.to(device).detach().requires_grad_(True)
+
+        # 2. Langevin MCMC Loop
+        # We use a temporary context to ensure we don't accidentally update model weights
+        for _ in range(self.config.sgld_steps):
+            # Compute energy: E(x) = -LogSumExp(logits)
+            energy = model.compute_energy(x_fake)
+
+            # Compute gradient: dE/dx
+            grad = torch.autograd.grad(energy.sum(), x_fake, retain_graph=False)[0]
+
+            # Update x_fake: x = x - (step_size/2) * dE/dx + noise
+            # This moves x towards lower energy regions (higher probability)
+            noise = torch.randn_like(x_fake) * self.config.sgld_sigma
+
+            # Using .data to avoid tracking the update itself in the autograd graph
+            x_fake.data = x_fake.data - (self.config.sgld_step_size / 2) * grad + noise
+
+        # 3. Update buffer with final samples and return
+        x_fake_final = x_fake.detach()
+        buffer.update(x_fake_final)
+
+        return x_fake_final

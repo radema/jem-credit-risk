@@ -89,3 +89,63 @@ def test_sgld_replay_buffer_sample_and_update():
     # In a batch of 20, 1 will be noise, 19 will be from buffer.
     samples = buffer.sample(batch_size=20)
     assert samples.shape == (20, feature_dim)
+
+
+def test_sgld_sampler_generate():
+    """Test SGLDSampler generates fake samples with proper gradient flows for Task 2.2."""
+    try:
+        from src.model.jem.sampler import SGLDSampler
+    except ImportError:
+        pytest.fail("SGLDSampler has not been implemented yet!")
+
+    input_dim = 10
+    num_classes = 2
+    buffer_size = 100
+    batch_size = 8
+
+    config = JEMConfig(
+        hidden_dims=[32], sgld_steps=5, sgld_step_size=0.1, sgld_sigma=0.01
+    )
+    model = TabularJEM(input_dim=input_dim, num_classes=num_classes, config=config)
+    buffer = SGLDReplayBuffer(buffer_size=buffer_size, feature_dim=input_dim)
+    sampler = SGLDSampler(config=config)
+
+    # Run sampler
+    # Note: sampler should move init_samples to model device
+    x_fake = sampler.generate(model, buffer, batch_size=batch_size)
+
+    assert x_fake.shape == (batch_size, input_dim)
+    # Ensure x_fake is detached (no gradients)
+    assert x_fake.grad_fn is None
+    # Buffer should have been updated
+    assert buffer.pointer == batch_size
+
+
+def test_jem_loss_calculation():
+    """Test JEMLoss formulation for Task 2.3 (TDD)."""
+    try:
+        from src.model.jem.loss import JEMLoss
+    except ImportError:
+        pytest.fail("JEMLoss has not been implemented yet!")
+
+    input_dim = 10
+    num_classes = 2
+    batch_size = 4
+
+    config = JEMConfig(l2_energy_weight=0.1)
+    model = TabularJEM(input_dim=input_dim, num_classes=num_classes, config=config)
+    criterion = JEMLoss(config=config)
+
+    x_real = torch.randn(batch_size, input_dim)
+    y_real = torch.randint(0, num_classes, (batch_size,))
+    x_fake = torch.randn(batch_size, input_dim)
+
+    loss_dict = criterion(model, x_real, y_real, x_fake)
+
+    assert "total_loss" in loss_dict
+    assert "clf_loss" in loss_dict
+    assert "gen_loss" in loss_dict
+    assert "l2_loss" in loss_dict
+
+    assert loss_dict["total_loss"].item() > 0
+    assert not torch.isnan(loss_dict["total_loss"])
