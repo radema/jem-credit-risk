@@ -1,4 +1,5 @@
 import logging
+import polars as pl
 from typing import List
 from src.data.config import DataPipelineConfig
 from src.data.unpack import extract_relevant_parquets
@@ -58,15 +59,19 @@ def run_pipeline(
 
     # 4. Final Join
     logger.info("Joining all aggregated tables to the base sampled dataset...")
-    # Pre-filter base_lazy to valid cases before joining so output exactly matches
-    stratified_base_lazy = base_lazy.join(
-        valid_cases_df.lazy(), on="case_id", how="inner"
-    )
+    # Pre-filter base_lazy to valid cases before joining
+    valid_ids = valid_cases_df["case_id"].to_list()
+    stratified_base_lazy = base_lazy.filter(pl.col("case_id").is_in(valid_ids))
 
     final_lazy = join_to_base(stratified_base_lazy, flattened_tables)
 
-    logger.info("Evaluating Lazy Evaluation Graph. This might take a few moments...")
-    final_df = final_lazy.collect()
+    logger.info(
+        "Evaluating Lazy Evaluation Graph with Streaming Engine. This might take a few moments..."
+    )
+    logger.info(
+        "Evaluating Lazy Evaluation Graph with Streaming Engine. This might take a few moments..."
+    )
+    final_df = final_lazy.collect(engine="streaming")
 
     # 5. EDA & Export
     logger.info("Execution complete. Proceeding to EDA and Export.")

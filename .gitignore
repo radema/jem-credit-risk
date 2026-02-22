@@ -5,3 +5,5 @@ skills-lock.json
 .cache/
 .cache_test/
 __pycache__
+*.parquet
+*.log
