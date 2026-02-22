@@ -7,3 +7,5 @@ skills-lock.json
 __pycache__
 *.parquet
 *.log
+*.ipynb_checkpoints
+*.png
