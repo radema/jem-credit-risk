@@ -10,9 +10,9 @@ This document outlines the phased, engineering-focused approach to implementing 
 
 **Action 2:** Declarative Aggregations. Use polars.LazyFrame to build the join logic across the base, person, and bureau tables. Focus on temporal aggregations (e.g., max, mean, var over historical applications).
 
-**Action 3:** Categorical Encoding & Dataset Export. Save the aggregated, unscaled data to parquet. Standard scaling is purposely postponed (Out of Scope for this phase) to avoid data leakage before Cross Validation.
+**Action 3:** Missing Value Imputation & Categorical Encoding. For categorical variables, perform frequency encoding and treat "MISSING" as a valid category. For continuous variables, perform median imputation strictly alongside binary missing indicator columns. Save the aggregated, unscaled data to parquet. Standard scaling is purposely postponed (Out of Scope for this phase) to avoid data leakage before Cross Validation.
 
-**Output:** Joined, aggregated, unscaled datasets saved locally.
+**Output:** Joined, aggregated, imputed, and unscaled datasets saved locally.
 
 ## Phase 2: Local Model Implementation (PyTorch)
 

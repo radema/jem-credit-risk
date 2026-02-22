@@ -94,9 +94,9 @@ Download the Home Credit competition data and place the parquet files in data/ra
 
 ## Core Modules
 
-The codebase will be split into three core modules. This separation of concerns ensures the complex data engineering does not pollute the mathematical modeling.
+The codebase is split into three core modules. This separation of concerns ensures the complex data engineering does not pollute the mathematical modeling.
 
-**data.py**: Utilizes polars.LazyFrame for out-of-core feature engineering. Implements a clean, chainable API for aggregating nested historical data, handling high-cardinality categoricals, and exporting normalized torch.Tensor datasets.
+**src/data/** (Module): Utilizes `polars.LazyFrame` for out-of-core feature engineering. Implements a clean, chainable pipeline (`pipeline.py`) for aggregating nested historical data, executing robust missing value imputation and frequency encoding for categoricals (`imputation.py`), and exporting finalized datasets.
 
 **jem.py**: Contains the TabularJEM class (the PyTorch neural network) and the SGLDSampler class (handles the MCMC sampling and Replay Buffer logic).
 

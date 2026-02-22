@@ -6,7 +6,8 @@ graph TD
         A[Raw Parquet: Base, Bureau, Person] --> B[Polars LazyFrames API]
         B --> C[Temporal Aggregations max, mean, var]
         C --> D[Left Join onto Base table via case_id]
-        D --> E[StandardScaler fit on Train Fold]
+        D --> D1[Missing Value Imputation & Frequency Encoding]
+        D1 --> E[StandardScaler fit on Train Fold]
         E --> F[(Processed Tensors)]
     end
 
