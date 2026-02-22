@@ -12,16 +12,17 @@ class JEMLoss(nn.Module):
     3. Stabilization loss (L2 penalty on energies)
     """
 
-    def __init__(self, config: JEMConfig):
+    def __init__(self, config: JEMConfig, clf_weight: torch.Tensor = None):
         """
         Initializes the JEM loss module.
 
         Args:
             config (JEMConfig): Configuration object containing regularization weights.
+            clf_weight (torch.Tensor, optional): Class weights for CrossEntropyLoss to handle imbalanced datasets.
         """
         super().__init__()
         self.config = config
-        self.ce_loss = nn.CrossEntropyLoss()
+        self.ce_loss = nn.CrossEntropyLoss(weight=clf_weight)
 
     def forward(
         self,

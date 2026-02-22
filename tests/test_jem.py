@@ -1,5 +1,8 @@
 import torch
 import pytest
+import numpy as np
+import polars as pl
+from src.model.jem.train import calculate_gini_stability, CreditRiskDataset
 from src.model.jem.config import JEMConfig
 from src.model.jem.scaler import TorchStandardScaler
 from src.model.jem.model import TabularJEM
@@ -149,3 +152,66 @@ def test_jem_loss_calculation():
 
     assert loss_dict["total_loss"].item() > 0
     assert not torch.isnan(loss_dict["total_loss"])
+
+
+def test_gini_stability_metric():
+    """Test Gini Stability Metric for Task 3.1."""
+    # Create fake labels and predictions
+    # Suppose we have 3 weeks: week 0, week 1, week 2
+    y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+    # Perfect predictions for week 0, slightly worse for week 1, even worse for week 2
+    y_pred = np.array(
+        [
+            0.1,
+            0.9,
+            0.2,
+            0.8,  # week 0: AUC 1.0 -> Gini 1.0
+            0.3,
+            0.7,
+            0.4,
+            0.6,  # week 1: AUC 1.0 -> Gini 1.0
+            0.5,
+            0.5,
+            0.4,
+            0.6,  # week 2: AUC depends, let's just make it valid
+        ]
+    )
+    week_nums = np.array([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2])
+
+    results = calculate_gini_stability(y_true, y_pred, week_nums)
+
+    assert "stability_metric" in results
+    assert "falling_rate" in results
+    assert "weekly_ginis" in results
+    assert len(results["weekly_ginis"]) == 3
+    # Falling rate should be <= 0
+    assert results["falling_rate"] <= 0.0
+
+
+def test_credit_risk_dataset():
+    """Test the dataset logic correctly scales features for Task 3.1."""
+    df = pl.DataFrame(
+        {
+            "case_id": [1, 2, 3],
+            "MONTH": [1, 1, 1],
+            "WEEK_NUM": [0, 0, 1],
+            "target": [0, 1, 0],
+            "feat_1": [10.0, 20.0, 30.0],
+            "feat_2": [100.0, 200.0, 300.0],
+        }
+    )
+
+    scaler = TorchStandardScaler(num_features=2)
+    dataset = CreditRiskDataset(
+        df, feature_cols=["feat_1", "feat_2"], scaler=scaler, is_train=True
+    )
+
+    # Assert scaling was applied
+    assert dataset.scaler.is_fitted.item() is True
+    assert dataset.features.shape == (3, 2)
+
+    # Check item getters
+    x, y, w = dataset[0]
+    assert x.shape == (2,)
+    assert y.item() == 0
+    assert w.item() == 0
