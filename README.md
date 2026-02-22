@@ -23,7 +23,8 @@ The project moves beyond standard discriminative classification by training a ne
 
 ### 🏗️ Architecture & Data Flow
 
-For a detailed technical breakdown of the mathematical framework, data engineering pipeline, and SGLD sampling strategy, please refer to the **[ARCHITECTURE.md](./ARCHITECTURE.md)** document.
+For a detailed technical breakdown of the mathematical framework, data engineering pipeline, and SGLD sampling strategy, please refer to the **[ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md)** document.
+
 
 ### 🛠️ Development Constraints
 
@@ -62,15 +63,20 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 ```
 .
 ├── data/
-│   ├── raw/                 # Put downloaded Kaggle parquet files here
+│   ├── raw/                 # Kaggle parquet files and csv dictionaries
 │   └── processed/           # Processed torch tensors will be saved here
+├── docs/                    
+│   ├── architecture/        # ARCHITECTURE.md and THEORY.md
+│   ├── data/                # data_dictionary.md
+│   └── planning/            # ROADMAP.md
 ├── src/
-│   ├── data.py              # Polars feature engineering and temporal aggregations
-│   ├── jem.py               # PyTorch TabularJEM architecture and SGLDSampler
-│   └── train.py             # Training loop, loss formulation, and metric logging
+│   ├── data              # Polars feature engineering and aggregations
+│   ├── jem.py               # PyTorch TabularJEM and SGLDSampler
+│   └── train.py             # Training loop, loss formulation, metrics
 ├── pyproject.toml
 └── README.md
 ```
+
 
 ## Setup & Quickstart
 
