@@ -1,3 +1,4 @@
+import argparse
 import logging
 import polars as pl
 from typing import List
@@ -108,6 +109,15 @@ def run_pipeline(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run the Data Pipeline")
+    parser.add_argument(
+        "--sample-ratio",
+        type=float,
+        default=0.05,
+        help="The fraction of the data to keep (e.g., 0.05 for 5%).",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -115,7 +125,7 @@ if __name__ == "__main__":
 
     cfg = DataPipelineConfig(
         data_dir="data/raw/home-credit-credit-risk-model-stability.zip",
-        sample_ratio=0.05,
+        sample_ratio=args.sample_ratio,
         cache_dir=".cache",
     )
 
