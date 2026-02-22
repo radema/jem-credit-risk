@@ -6,6 +6,8 @@ from src.model.jem.train import calculate_gini_stability, CreditRiskDataset
 from src.model.jem.config import JEMConfig
 from src.model.jem.scaler import TorchStandardScaler
 from src.model.jem.model import TabularJEM
+from src.model.jem.diagnostics import JEMDiagnostics
+import os
 
 # We will import SGLDReplayBuffer here, but it's not implemented yet.
 try:
@@ -215,3 +217,43 @@ def test_credit_risk_dataset():
     assert x.shape == (2,)
     assert y.item() == 0
     assert w.item() == 0
+
+
+def test_jem_diagnostics():
+    """Test JEMDiagnostics plots code for Task 3.2."""
+    if "SGLDReplayBuffer" not in globals():
+        pytest.skip("SGLDReplayBuffer has not been implemented yet!")
+
+    e_real = [1.0, 0.8, 0.6]
+    e_fake = [5.0, 4.0, 3.0]
+    e_in_dist = np.array([1.2, 0.9, 1.1])
+    e_out_dist = np.array([8.0, 9.1, 7.5])
+
+    y_true = np.array([0, 1, 0, 1])
+    y_prob = np.array([0.1, 0.9, 0.3, 0.8])
+
+    buffer = SGLDReplayBuffer(buffer_size=10, feature_dim=5)
+    buffer.update(torch.randn(10, 5))
+    x_real = torch.randn(15, 5)
+
+    # Run all methods to ensure no exceptions are raised during plotting
+    JEMDiagnostics.plot_energy_ranges(e_real, e_fake, save_path="test_ranges.png")
+    JEMDiagnostics.plot_energy_density(
+        e_in_dist, e_out_dist, save_path="test_density.png"
+    )
+    JEMDiagnostics.plot_reliability_diagram(
+        y_true, y_prob, num_bins=2, save_path="test_rel.png"
+    )
+    JEMDiagnostics.inspect_replay_buffer(
+        buffer, x_real, save_path="test_buffer.png", n_samples=5
+    )
+
+    # Assert files are created and delete them
+    for fname in [
+        "test_ranges.png",
+        "test_density.png",
+        "test_rel.png",
+        "test_buffer.png",
+    ]:
+        assert os.path.exists(fname)
+        os.remove(fname)
