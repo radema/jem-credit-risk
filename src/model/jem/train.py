@@ -106,7 +106,19 @@ def get_dataloaders(
     Prepares DataLoaders for train and validation using weighted random sampling to combat class imbalance.
     """
     exclude_cols = ["case_id", "MONTH", "WEEK_NUM", "target"]
-    feature_cols = [col for col in df_train.columns if col not in exclude_cols]
+    feature_cols = [
+        col
+        for col in df_train.columns
+        if col not in exclude_cols and df_train[col].dtype.is_numeric()
+    ]
+
+    # Fill nulls in features directly inside the dataframe to prevent dtype object fallback
+    df_train = df_train.with_columns(
+        pl.col(feature_cols).cast(pl.Float32).fill_null(0.0).fill_nan(0.0)
+    )
+    df_val = df_val.with_columns(
+        pl.col(feature_cols).cast(pl.Float32).fill_null(0.0).fill_nan(0.0)
+    )
 
     scaler = TorchStandardScaler(num_features=len(feature_cols))
 
