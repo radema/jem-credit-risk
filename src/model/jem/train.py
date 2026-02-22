@@ -166,7 +166,9 @@ def train_jem_epoch(
         y_real = y_real.to(device)
 
         # 1. Generate Fake Samples (requires eval mode conceptually, but we detach anyway)
+        model.eval()
         x_fake = sampler.generate(model, buffer, batch_size=x_real.size(0))
+        model.train()
 
         # 2. Forward pass and Loss Computation
         optimizer.zero_grad()
