@@ -18,8 +18,8 @@ The project moves beyond standard discriminative classification by training a ne
 
 *   **Primary Goal**: Implement a JEM to classify default risk while simultaneously learning the marginal distribution of normal client profiles.
 *   **Data Engineering**: Design a declarative, memory-efficient data pipeline using **Polars** (LazyFrame API) to aggregate deep relational tables (Bureau, Person, etc.) into a flat feature matrix without Out-Of-Memory (OOM) exceptions.
-*   **MLOps & Monitoring**: Utilize the JEM's energy output to track distribution shifts and visualize temporal decay across the `MONTH` dimension.
-*   **Benchmarking**: Achieve competitive **Gini Stability** (competition metric) and AUC metrics against public leaderboard baselines.
+*   **Hierarchical Latent Space Sampling**: Pre-train an Offline Tabular Autoencoder to map the discrete and sparse tabular features into a dense, continuous latent space $\mathbb{R}^{64}$. The JEM and its SGLD sampler operate safely over this latent continuous manifold to prevent sampling collapse.
+*   **MLOps & Monitoring**: Combine data scalers, the pretrained autoencoder, and the JEM classifier into a cohesive inference wrapper to avoid training-serving skew. Utilize the JEM's energy output to track distribution shifts and visualize temporal decay across the `MONTH` dimension.
 
 ### 🏗️ Architecture & Data Flow
 
@@ -70,9 +70,9 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 │   ├── data/                # data_dictionary.md
 │   └── planning/            # ROADMAP.md
 ├── src/
-│   ├── data              # Polars feature engineering and aggregations
-│   ├── jem.py               # PyTorch TabularJEM and SGLDSampler
-│   └── train.py             # Training loop, loss formulation, metrics
+│   ├── data                 # Polars feature engineering and aggregations
+│   ├── model/autoencoder    # Pre-training tabular autoencoder for latent space
+│   └── model/jem            # PyTorch TabularJEM, SGLDSampler, training loops
 ├── pyproject.toml
 └── README.md
 ```
@@ -83,10 +83,9 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 Install Dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
-(Ensure you have polars, torch, scikit-learn, numpy, and matplotlib installed).
 
 ## Data Preparation
 
@@ -98,17 +97,17 @@ The codebase is split into three core modules. This separation of concerns ensur
 
 **src/data/** (Module): Utilizes `polars.LazyFrame` for out-of-core feature engineering. Implements a clean, chainable pipeline (`pipeline.py`) for aggregating nested historical data, executing robust missing value imputation and frequency encoding for categoricals (`imputation.py`), and exporting finalized datasets.
 
-**jem.py**: Contains the TabularJEM class (the PyTorch neural network) and the SGLDSampler class (handles the MCMC sampling and Replay Buffer logic).
+**src/model/autoencoder/**: Pre-trains a tabular autoencoder to map discrete variables into a dense, mathematically continuous $\mathbb{R}^{64}$ latent space required for stable Langevin sampling.
 
-**train.py**: The training orchestrator. Handles the PyTorch DataLoader, computes the combined loss $\mathcal{L} = \mathcal{L}_{clf} + \lambda \mathcal{L}_{energy}$, and logs validation AUC and energy distribution histograms across temporal splits.
+**src/model/jem/**: Contains the TabularJEM class and the SGLDSampler class (handles the MCMC sampling and Replay Buffer logic). Exports the unified `LatentJEMWrapper`.
 
 ## Development Workflow
 
-Step 1: Run src/data.py to ingest the relational tables, aggregate features using Polars, and export scaled tensors. 
+Step 1: Execute `notebooks/JEM_Execution_Pipeline.ipynb` for the full data and training workflow, OR run the automated scripts:
 
-Step 2: Run src/jem.py as a standalone script to execute unit tests verifying the SGLD backward passes.
+Step 2: Run `src/model/autoencoder/train_autoencoder.py` to map features to the latent space mapping tensors `Z`. 
 
-Step 3: Run src/train.py to initiate the dual-objective training loop.
+Step 3: Run `src/model/jem/train_latent.py` to initiate the dual-objective training loop on the `Z` embeddings and serialize the final MLOps deployment artifact.
 
 ## Design Philosophy
 

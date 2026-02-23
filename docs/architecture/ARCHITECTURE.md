@@ -11,8 +11,13 @@ graph TD
         E --> F[(Processed Tensors)]
     end
 
+    subgraph Offline Tabular Autoencoder
+        F --> G1[Encoder: 347D -> 64D]
+        G1 --> G2[(Latent Feature Tensors Z)]
+    end
+
     subgraph Joint Energy-Based Model
-        F -->|Batch x_real| G[MLP: f_theta]
+        G2 -->|Batch z_real| G[MLP: f_theta]
         G --> H[Logits: Class 0, Class 1]
         
         H --> I{Softmax}
@@ -23,8 +28,8 @@ graph TD
     end
 
     subgraph SGLD Sampler
-        M[(Replay Buffer)] -->|95% Buffer, 5% Noise| N[x_init]
-        N -->|Gradient Ascent on E| O[x_fake]
+        M[(64D Replay Buffer)] -->|95% Buffer, 5% Noise| N[z_init]
+        N -->|Gradient Ascent on E| O[z_fake]
         O --> G
         O -->|Update| M
         O --> K
@@ -37,6 +42,11 @@ graph TD
         J --> Q
         Q -->|Gradient Descent| G
     end
+
+    subgraph MLOps Inference Wrapper
+        W1[Raw Data] --> W2[Fitted StandardScaler]
+        W2 --> W3[Pre-trained Encoder]
+        W3 --> W4[Pre-trained JEM Classifier]
+        W4 --> W5[Risk Probabilities & Energy Shift Monitor]
+    end
 ```
-
-
