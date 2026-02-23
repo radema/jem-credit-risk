@@ -108,6 +108,11 @@ def main():
     torch.save(autoencoder.encoder.state_dict(), encoder_path)
     logger.info(f"Encoder saved to {encoder_path}")
 
+    # Also save the scaler
+    scaler_path = "data/processed/scaler.pt"
+    torch.save(scaler.state_dict(), scaler_path)
+    logger.info(f"Scaler saved to {scaler_path}")
+
     # 6. Map entire dataset into fixed latent feature tensors Z
     # Ensure dataframe is prepared (null fillers etc)
     df_train = prepare_raw_dataframe(df_train, feature_cols)
