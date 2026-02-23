@@ -124,6 +124,16 @@ def get_dataloaders(
     df_train = prepare_raw_dataframe(df_train, feature_cols)
     df_val = prepare_raw_dataframe(df_val, feature_cols)
 
+    # Low variance filtering: remove features with var < 1e-4
+    variances = df_train.select(pl.col(feature_cols).var()).to_dicts()[0]
+    low_var_cols = [c for c in feature_cols if variances[c] < 1e-4]
+
+    if low_var_cols:
+        print(f"Dropping {len(low_var_cols)} features with variance < 1e-4")
+        feature_cols = [c for c in feature_cols if c not in low_var_cols]
+
+    print(f"Features after low-variance filtering: {len(feature_cols)}")
+
     scaler = TorchStandardScaler(num_features=len(feature_cols))
 
     train_dataset = CreditRiskDataset(

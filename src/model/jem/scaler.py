@@ -79,7 +79,7 @@ class TorchStandardScaler(nn.Module):
         var_safe = torch.where(self.var < self.eps, 1.0, self.var)
         std = torch.sqrt(var_safe)
 
-        return (x - self.mean) / std
+        return torch.clamp((x - self.mean) / std, -10.0, 10.0)
 
     def fit_transform(self, x: torch.Tensor) -> torch.Tensor:
         """
