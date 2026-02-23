@@ -4,10 +4,16 @@ import torch
 import torch.optim as optim
 import polars as pl
 from tqdm import tqdm
-
+from torch.utils.data import DataLoader
 from src.data.pipeline import run_pipeline
 from src.data.config import DataPipelineConfig
-from src.model.jem.train import get_dataloaders
+from src.model.jem.data_utils import (
+    split_data_chronologically,
+    get_dataloaders,
+    get_feature_cols,
+    prepare_raw_dataframe,
+    CreditRiskDataset,
+)
 from src.model.autoencoder.model import TabularAutoencoder, AutoencoderLoss
 
 logging.basicConfig(
@@ -41,20 +47,11 @@ def main():
     )
     logger.info(f"Data shape: {df_full.shape}")
 
-    # 2. Time-based split: Validation on the last few weeks
-    max_week = df_full["WEEK_NUM"].max()
-    val_weeks = 12
-    df_train = df_full.filter(pl.col("WEEK_NUM") <= max_week - val_weeks)
-    df_val = df_full.filter(pl.col("WEEK_NUM") > max_week - val_weeks)
-
+    # 2. Time-based split
+    df_train, df_val = split_data_chronologically(df_full, val_weeks=12)
     logger.info(f"Train size: {df_train.shape[0]}, Val size: {df_val.shape[0]}")
 
     # 3. Create DataLoaders
-    # Note: get_dataloaders returns TrainLoader, ValLoader, Scaler, feature_cols
-    # TrainLoader has a WeightedRandomSampler and drops last batch. This is fine for training autoencoder,
-    # but NOT fine for generating the static mapped tensors where we want exact 1-to-1 mapping without drops.
-    # Therefore, we will create a train_loader for autoencoder training, but create sequential loaders for mapping.
-
     train_loader, val_loader_for_eval, scaler, feature_cols = get_dataloaders(
         df_train, df_val, batch_size=256
     )
@@ -108,20 +105,18 @@ def main():
     # 5. Save the trained encoder weights
     os.makedirs("data/processed", exist_ok=True)
     encoder_path = "data/processed/encoder.pt"
-    # To package via nn.Sequential easily later, we can save the whole encoder module or its state_dict.
-    # The spec asks to "Save the trained encoder weights as an artifact (e.g., ../data/processed/encoder.pt)."
     torch.save(autoencoder.encoder.state_dict(), encoder_path)
     logger.info(f"Encoder saved to {encoder_path}")
 
     # 6. Map entire dataset into fixed latent feature tensors Z
-    # We must construct un-shuffled dataloaders without drop_last to capture the complete set with targets & weeks.
-    from src.model.jem.train import CreditRiskDataset
-    from torch.utils.data import DataLoader
+    # Ensure dataframe is prepared (null fillers etc)
+    df_train = prepare_raw_dataframe(df_train, feature_cols)
+    df_val = prepare_raw_dataframe(df_val, feature_cols)
 
     # We need to create standard dataloaders that don't shuffle or drop last.
     seq_train_dataset = CreditRiskDataset(
         df_train, feature_cols, scaler=scaler, is_train=False
-    )  # scaler already fit
+    )
     seq_val_dataset = CreditRiskDataset(
         df_val, feature_cols, scaler=scaler, is_train=False
     )

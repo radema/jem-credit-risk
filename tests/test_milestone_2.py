@@ -1,44 +1,60 @@
-from src.data.config import DataPipelineConfig
-from src.data.unpack import extract_relevant_parquets
-from src.data.loader import scan_table
-from src.data.sampling import generate_stratified_sample, apply_case_filter
+import torch
+import pytest
+import os
+from src.model.jem.model import TabularJEM
+from src.model.jem.config import JEMConfig
+from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
+from src.model.jem.data_utils import get_latent_dataloaders
 
 
-def test_milestone_2():
-    import logging
+def test_jem_latent_space_compatibility():
+    # Test if JEM can handle 64-dimensional latent input properly
+    latent_dim = 64
+    num_classes = 2
+    config = JEMConfig(hidden_dims=[128, 64])
 
-    logging.basicConfig(level=logging.INFO)
+    model = TabularJEM(input_dim=latent_dim, num_classes=num_classes, config=config)
 
-    zip_path = "data/raw/home-credit-credit-risk-model-stability.zip"
-    cache_dir = ".cache_test"
+    # Check weights/architecture
+    assert model.input_dim == 64
+    x = torch.randn(16, latent_dim)
+    logits = model(x)
+    assert logits.shape == (16, num_classes)
 
-    config = DataPipelineConfig(
-        data_dir=zip_path,
-        sample_ratio=0.0001,  # extremely small sample for quick testing
-        cache_dir=cache_dir,
+    energy = model.compute_energy(x)
+    assert energy.shape == (16,)
+
+
+def test_sampler_latent_space_compatibility():
+    # Test if Sampler/Buffer can handle 64-dimensional latent space
+    latent_dim = 64
+    buffer_size = 100
+    config = JEMConfig(sgld_steps=5, sgld_step_size=0.1, sgld_sigma=0.01)
+
+    buffer = SGLDReplayBuffer(buffer_size=buffer_size, feature_dim=latent_dim)
+    sampler = SGLDSampler(config=config)
+
+    model = TabularJEM(input_dim=latent_dim, num_classes=2, config=config)
+
+    # Generate samples in latent space
+    samples = sampler.generate(model, buffer, batch_size=8)
+
+    assert samples.shape == (8, latent_dim)
+    assert buffer.pointer == 8
+
+
+def test_latent_data_loading():
+    train_path = "data/processed/latent_train.pt"
+    val_path = "data/processed/latent_val.pt"
+
+    if not os.path.exists(train_path) or not os.path.exists(val_path):
+        pytest.skip("Latent files not found. Run train_autoencoder.py first.")
+
+    train_loader, val_loader = get_latent_dataloaders(
+        train_path, val_path, batch_size=32
     )
 
-    new_dir = extract_relevant_parquets(config.data_dir, config.cache_dir)
-
-    print("Loading valid cases from train_base...")
-    base_lazy = scan_table("train_base", new_dir)
-    base_df = base_lazy.collect()
-
-    valid_cases_df = generate_stratified_sample(
-        base_df, sample_ratio=config.sample_ratio
-    )
-
-    print("Scanning train_credit_bureau_a_1...")
-    bureau_a_1_lazy = scan_table("train_credit_bureau_a_1", new_dir)
-
-    bureau_a_1_filtered = apply_case_filter(bureau_a_1_lazy, valid_cases_df)
-
-    print("Attempting to collect filtered table...")
-    filtered_df = bureau_a_1_filtered.collect()
-
-    print(f"Filtered Table Shape: {filtered_df.shape}")
-    print("Successfully filtered and saved memory!")
-
-
-if __name__ == "__main__":
-    test_milestone_2()
+    z, y, weeks = next(iter(train_loader))
+    assert z.shape == (32, 64)
+    assert y.shape == (32,)
+    assert weeks.shape == (32,)

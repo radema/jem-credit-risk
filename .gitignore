@@ -9,3 +9,4 @@ __pycache__
 *.log
 *.ipynb_checkpoints
 *.png
+*.pt
