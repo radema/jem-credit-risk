@@ -1,15 +1,10 @@
 import logging
 import numpy as np
-import polars as pl
 import torch
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
-from sklearn.metrics import roc_auc_score
-
+from torch.utils.data import DataLoader
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
 from src.model.jem.loss import JEMLoss
-from src.model.jem.scaler import TorchStandardScaler
-
 from src.model.jem.data_utils import (
     calculate_gini_stability,
     get_dataloaders,

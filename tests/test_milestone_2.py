@@ -54,7 +54,34 @@ def test_latent_data_loading():
         train_path, val_path, batch_size=32
     )
 
+    assert len(train_loader) > 0
     z, y, weeks = next(iter(train_loader))
     assert z.shape == (32, 64)
     assert y.shape == (32,)
     assert weeks.shape == (32,)
+
+
+def test_latent_jem_wrapper():
+    from src.model.jem.model import LatentJEMWrapper, TabularJEM
+    from src.model.jem.scaler import TorchStandardScaler
+    import torch.nn as nn
+
+    input_dim = 100
+    latent_dim = 64
+    config = JEMConfig(hidden_dims=[128])
+
+    scaler = TorchStandardScaler(input_dim)
+    # Fit the scaler to avoid RuntimeError
+    scaler.fit(torch.randn(10, input_dim))
+    # Mock encoder
+    encoder = nn.Linear(input_dim, latent_dim)
+    jem = TabularJEM(latent_dim, num_classes=2, config=config)
+
+    wrapper = LatentJEMWrapper(scaler, encoder, jem)
+
+    x_raw = torch.randn(16, input_dim)
+    logits = wrapper(x_raw)
+    energy = wrapper.compute_energy(x_raw)
+
+    assert logits.shape == (16, 2)
+    assert energy.shape == (16,)

@@ -82,3 +82,44 @@ class TabularJEM(nn.Module):
         logits = self.forward(x)
         # LogSumExp across the class dimension (dim=1)
         return -torch.logsumexp(logits, dim=1)
+
+
+class LatentJEMWrapper(nn.Module):
+    """
+    Wraps a TorchStandardScaler, a TabularAutoencoder (encoder part), and a TabularJEM.
+    This allows the model to accept raw features, scale them, project to latent space,
+    and then compute logits/energy.
+    """
+
+    def __init__(self, scaler: nn.Module, encoder: nn.Module, jem: TabularJEM):
+        """
+        Initializes the Latent JEM Wrapper.
+
+        Args:
+            scaler (nn.Module): Fitted TorchStandardScaler instance.
+            encoder (nn.Module): Encoder part of the TabularAutoencoder.
+            jem (TabularJEM): The JEM model trained on latent space.
+        """
+        super().__init__()
+        self.scaler = scaler
+        self.encoder = encoder
+        self.jem = jem
+
+    def forward(self, x_raw: torch.Tensor) -> torch.Tensor:
+        """
+        End-to-end forward pass from raw features to class logits.
+        """
+        # 1. Scale raw features
+        x_scaled = self.scaler.transform(x_raw)
+        # 2. Project to latent space
+        z = self.encoder(x_scaled)
+        # 3. Compute logits through JEM
+        return self.jem(z)
+
+    def compute_energy(self, x_raw: torch.Tensor) -> torch.Tensor:
+        """
+        End-to-end energy computation from raw features.
+        """
+        x_scaled = self.scaler.transform(x_raw)
+        z = self.encoder(x_scaled)
+        return self.jem.compute_energy(z)

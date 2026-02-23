@@ -154,12 +154,8 @@ def get_latent_dataloaders(train_path: str, val_path: str, batch_size: int = 256
 
     # train_dataset mapping: (Z, y, weeks)
     # y is torch.long, weeks is numpy array in generation, let's ensure consistency
-    train_dataset = TensorDataset(
-        train_data["z"], train_data["y"], torch.tensor(train_data["weeks"])
-    )
-    val_dataset = TensorDataset(
-        val_data["z"], val_data["y"], torch.tensor(val_data["weeks"])
-    )
+    train_dataset = TensorDataset(train_data["z"], train_data["y"], train_data["weeks"])
+    val_dataset = TensorDataset(val_data["z"], val_data["y"], val_data["weeks"])
 
     # Compute sample weights for the latent train set as well
     targets = train_data["y"]
