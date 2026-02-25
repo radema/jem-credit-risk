@@ -10,7 +10,6 @@ from src.data.config import DataPipelineConfig
 from src.model.jem.data_utils import (
     split_data_chronologically,
     get_dataloaders,
-    get_feature_cols,
     prepare_raw_dataframe,
     CreditRiskDataset,
 )
@@ -35,14 +34,19 @@ def main():
     # 1. Load the restricted manifold dataset
     cfg = DataPipelineConfig(
         data_dir="data/raw/home-credit-credit-risk-model-stability.zip",
-        sample_ratio=0.05,
+        sample_ratio=0.1,
         cache_dir=".cache",
     )
     logger.info("Building feature manifold...")
     df_full = run_pipeline(
         config=cfg,
-        depth_0_tables=["train_static_0"],
-        depth_1_tables=["train_person_1"],
+        depth_0_tables=["train_static_0", "train_static_cb_0"],
+        depth_1_tables=[
+            "train_person_1",
+            "train_deposit",
+            "train_debitcard",
+            "train_other",
+        ],
         depth_2_tables=[],
     )
     logger.info(f"Data shape: {df_full.shape}")
@@ -56,7 +60,7 @@ def main():
         df_train, df_val, batch_size=256
     )
     input_dim = len(feature_cols)
-    latent_dim = 64
+    latent_dim = 128
     logger.info(f"Input feature dimension: {input_dim}")
 
     # 4. Initialize Autoencoder
@@ -66,7 +70,7 @@ def main():
     criterion = AutoencoderLoss()
     optimizer = optim.Adam(autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)
 
-    epochs = 15
+    epochs = 30
     logger.info("Starting Autoencoder Pre-training...")
     for epoch in range(1, epochs + 1):
         autoencoder.train()

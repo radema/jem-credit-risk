@@ -46,7 +46,7 @@ def run_pipeline(
     for d2_table in depth_2_tables:
         logger.info(f"Processing Depth-2 Table: {d2_table}")
         lazy_d2 = scan_table(d2_table, cache_dir)
-        filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="inner")
+        filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="left")
 
         # Aggregate depth 2 -> depth 1 grain
         agg_d2 = aggregate_depth_2(filtered_d2)
