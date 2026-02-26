@@ -43,10 +43,32 @@ graph TD
         Q -->|Gradient Descent| G
     end
 
-    subgraph MLOps Inference Wrapper
-        W1[Raw Data] --> W2[Fitted StandardScaler]
-        W2 --> W3[Pre-trained Encoder]
-        W3 --> W4[Pre-trained JEM Classifier]
-        W4 --> W5[Risk Probabilities & Energy Shift Monitor]
+    subgraph Phase 4: Output & Monitoring
+        W3 --> W4[Probabilistic Scoring]
+        W4 --> W5[submission.csv Output]
+        W4 --> W6[Internal Energy OOD Monitor]
+    end
+
+    subgraph Phase 3: Batched Inference Engine
+        W2 --> W3[TabularJEM Forward Pass]
+    end
+
+    subgraph Phase 2: Inference-Ready Preprocessing
+        W1[Raw Data Archetypes] --> W1_1[Prefix Mapping]
+        W1_1 --> W1_2[Schema Alignment]
+        W1_2 --> W2[Fitted Scaler & Encoder]
+    end
+
+    subgraph Phase 1: State Management
+        W0[Load imputer_state.pkl] --> W1_2
     end
 ```
+
+## Inference Phase Orchestration
+
+The JEM Inference Pipeline is executed through four distinct phases:
+
+1.  **Phase 1: State Management**: The pipeline initializes the environment by loading precomputed transformation statistics (medians, frequency maps, training schema) from the `artifact_dir`.
+2.  **Phase 2: Inference-Ready Preprocessing**: The `src.data.pipeline` executes in `is_inference=True` mode, performing automatic table prefix mapping and ensuring strict schema alignment with the training set.
+3.  **Phase 3: Batched Inference Engine**: To maintain a constant memory profile ($O(batch\_size)$), the inference engine uses a PyTorch `DataLoader` to stream features through the `TorchStandardScaler`, `TabularAutoencoder`, and `TabularJEM`.
+4.  **Phase 4: Output & Monitoring**: The final stage aggregates probabilistic scores, generates the competition-compliant `submission.csv`, and reports diagnostic **Energy** ($E(x)$) statistics to monitor for temporal distribution shifts.
