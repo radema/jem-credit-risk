@@ -8,3 +8,4 @@ class DataPipelineConfig:
     data_dir: str
     sample_ratio: float
     cache_dir: str = ".cache"
+    artifact_dir: str = "models/artifacts"

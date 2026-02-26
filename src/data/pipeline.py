@@ -100,7 +100,18 @@ def run_pipeline(
 
     # 6. Imputation & Categorical Encoding
     logger.info("Handling missing values and frequency encoding categoricals...")
-    final_df = handle_missing_and_categoricals(final_df)
+    final_df, imputer_state = handle_missing_and_categoricals(final_df)
+
+    # Save Imputer state
+    import pickle
+    from pathlib import Path
+
+    artifact_dir = Path(config.artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    state_path = artifact_dir / "imputer_state.pkl"
+    with open(state_path, "wb") as f:
+        pickle.dump(imputer_state, f)
+    logger.info(f"Saved imputer state to {state_path}")
 
     # 7. EDA & Export
     logger.info("Execution complete. Proceeding to EDA and Export.")

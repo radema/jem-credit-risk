@@ -4,7 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def handle_missing_and_categoricals(df: pl.DataFrame) -> pl.DataFrame:
+def handle_missing_and_categoricals(
+    df: pl.DataFrame, state: dict | None = None
+) -> tuple[pl.DataFrame, dict]:
     """
     Handles missing values and categorical features according to the following logic:
     - Categorical variables: Replace each with integer frequency (count frequency encoding).
@@ -12,6 +14,10 @@ def handle_missing_and_categoricals(df: pl.DataFrame) -> pl.DataFrame:
     - Missing Continuous: Median Imputation + Missing Indicator (binary column).
     """
     logger.info("Handling missing values and categorical features...")
+
+    is_fitting = state is None
+    if is_fitting:
+        state = {"medians": {}, "freqs": {}}
 
     exclude_cols = ["case_id", "WEEK_NUM", "target", "num_group1", "num_group2"]
 
@@ -50,6 +56,15 @@ def handle_missing_and_categoricals(df: pl.DataFrame) -> pl.DataFrame:
     null_exprs = []
     fill_num_exprs = []
 
+    if is_fitting and numeric_cols:
+        medians_dict = df.select(
+            [pl.col(c).median().alias(c) for c in numeric_cols]
+        ).to_dicts()[0]
+        # Handle cases where median might be None (all nulls)
+        state["medians"] = {
+            c: (m if m is not None else 0.0) for c, m in medians_dict.items()
+        }
+
     for col in numeric_cols:
         col_dtype = schema[col]
 
@@ -65,9 +80,10 @@ def handle_missing_and_categoricals(df: pl.DataFrame) -> pl.DataFrame:
         null_exprs.append(is_miss_expr)
 
         # fill expr
-        fill_expr = pl.col(col).fill_null(pl.col(col).median())
+        median_val = state["medians"][col]
+        fill_expr = pl.col(col).fill_null(median_val)
         if col_dtype in [pl.Float32, pl.Float64]:
-            fill_expr = fill_expr.fill_nan(pl.col(col).median())
+            fill_expr = fill_expr.fill_nan(median_val)
 
         fill_num_exprs.append(fill_expr.alias(col))
 
@@ -80,13 +96,28 @@ def handle_missing_and_categoricals(df: pl.DataFrame) -> pl.DataFrame:
     df = df.with_columns(null_exprs + fill_num_exprs + fill_cat_exprs)
 
     # 3. Categorical: map to frequencies
-    freq_exprs = [
-        pl.col(col).count().over(col).cast(pl.Int32).alias(col) for col in cat_cols
-    ]
+    if is_fitting:
+        for col in cat_cols:
+            vc = df[col].value_counts()
+            c1, c2 = vc.columns[0], vc.columns[1]
+            # Convert to dictionary (mapping string to count)
+            freq_map = dict(zip(vc[c1].to_list(), vc[c2].to_list()))
+            state["freqs"][col] = freq_map
+
+    freq_exprs = []
+    for col in cat_cols:
+        freq_map = state["freqs"][col]
+        col_expr = pl.col(col)
+        # Using strict typing or casting based on polars version
+        if hasattr(pl.Expr, "replace"):
+            expr = col_expr.replace(freq_map, default=1).cast(pl.Int32).alias(col)
+        else:
+            expr = col_expr.map_dict(freq_map, default=1).cast(pl.Int32).alias(col)
+        freq_exprs.append(expr)
 
     # Combine step B: rewrite cat columns to counts
     if cat_cols:
         df = df.with_columns(freq_exprs)
 
     logger.info("Completed handling of missing values and categoricals.")
-    return df
+    return df, state

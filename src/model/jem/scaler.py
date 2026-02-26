@@ -81,6 +81,29 @@ class TorchStandardScaler(nn.Module):
 
         return torch.clamp((x - self.mean) / std, -10.0, 10.0)
 
+    def save(self, path: str):
+        """Saves the scaler state to a file."""
+        from pathlib import Path
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "num_features": self.num_features,
+                "eps": self.eps,
+                "state_dict": self.state_dict(),
+            },
+            path,
+        )
+
+    @classmethod
+    def load(cls, path: str) -> "TorchStandardScaler":
+        """Loads the scaler state from a file."""
+        state = torch.load(path)
+        scaler = cls(num_features=state["num_features"], eps=state.get("eps", 1e-8))
+        scaler.load_state_dict(state["state_dict"])
+        return scaler
+
     def fit_transform(self, x: torch.Tensor) -> torch.Tensor:
         """
         Convenience method to fit the scaler and then transform the data.

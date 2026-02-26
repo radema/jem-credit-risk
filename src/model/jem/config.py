@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 class JEMConfig:
     """Configuration for the Joint Energy-Based Model (JEM)."""
 
+    artifact_dir: str = "models/artifacts"
     hidden_dims: list[int] = field(default_factory=lambda: [256, 256])
     sgld_steps: int = 20
     sgld_step_size: float = 1e-3
