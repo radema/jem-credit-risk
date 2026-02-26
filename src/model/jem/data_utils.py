@@ -183,3 +183,31 @@ def get_latent_dataloaders(train_path: str, val_path: str, batch_size: int = 256
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
+
+
+class InferenceDataset(Dataset):
+    """
+    Dataset for inference that yields (case_id, features).
+    """
+
+    def __init__(self, df: pl.DataFrame, feature_cols: list[str]):
+        self.case_ids = df["case_id"].to_numpy()
+        self.features = df.select(feature_cols).to_numpy()
+
+    def __len__(self):
+        return len(self.case_ids)
+
+    def __getitem__(self, idx):
+        # We wrap in torch.tensor here row-by-row to save overall memory
+        # compared to pre-converting the entire dataframe to a single giant tensor.
+        x = torch.tensor(self.features[idx], dtype=torch.float32)
+        case_id = self.case_ids[idx]
+        return case_id, x
+
+
+def get_inference_dataloader(
+    df: pl.DataFrame, feature_cols: list[str], batch_size: int = 4096
+):
+    """Returns a simple DataLoader yielding (case_id, x_batch) for inference."""
+    dataset = InferenceDataset(df, feature_cols)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False)
