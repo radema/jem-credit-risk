@@ -1,7 +1,10 @@
 import argparse
 import logging
 import polars as pl
+import pickle
+from pathlib import Path
 from typing import List
+
 from src.data.config import DataPipelineConfig
 from src.data.unpack import extract_relevant_parquets
 from src.data.loader import scan_table
@@ -22,22 +25,6 @@ def run_pipeline(
     """
     Orchestrates the data pipeline using an end-to-end Lazy execution graph.
     """
-
-    def _normalize_shards(lf: pl.LazyFrame) -> pl.LazyFrame:
-        """
-        Casts columns to consistent types to avoid schema mismatches during collect().
-        In Home Credit dataset, columns ending in 'D' are often mixed (Null vs String).
-        """
-        schema = lf.collect_schema()
-        cast_cols = []
-        for col, dtype in schema.items():
-            if col.endswith("D") and dtype == pl.Null:
-                cast_cols.append(pl.col(col).cast(pl.String))
-
-        if cast_cols:
-            return lf.with_columns(cast_cols)
-        return lf
-
     is_inference = config.is_inference
     mode_str = "INFERENCE" if is_inference else "TRAINING"
     logger.info(f"--- Starting Data Pipeline Run ({mode_str} Mode) ---")
@@ -55,7 +42,7 @@ def run_pipeline(
 
     # 1. Base Loader & Sampling
     logger.info(f"Loading Base Table: {base_table}")
-    base_lazy = _normalize_shards(scan_table(base_table, cache_dir))
+    base_lazy = scan_table(base_table, cache_dir)
 
     if is_inference:
         logger.info("Process all case_ids for inference.")
@@ -77,7 +64,7 @@ def run_pipeline(
     # 2. Process Depth 2
     for d2_table in d2_tables:
         logger.info(f"Processing Depth-2 Table: {d2_table}")
-        lazy_d2 = _normalize_shards(scan_table(d2_table, cache_dir))
+        lazy_d2 = scan_table(d2_table, cache_dir)
         filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Aggregate depth 2 -> depth 1 grain
@@ -94,7 +81,7 @@ def run_pipeline(
     # 3. Process Depth 1
     for d1_table in d1_tables:
         logger.info(f"Processing Depth-1 Table: {d1_table}")
-        lazy_d1 = _normalize_shards(scan_table(d1_table, cache_dir))
+        lazy_d1 = scan_table(d1_table, cache_dir)
         filtered_d1 = lazy_d1.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Join corresponding depth-2 tables BEFORE depth-1 aggregation
@@ -112,7 +99,7 @@ def run_pipeline(
     # 4. Process Depth 0
     for d0_table in d0_tables:
         logger.info(f"Processing Depth-0 Table: {d0_table}")
-        lazy_d0 = _normalize_shards(scan_table(d0_table, cache_dir))
+        lazy_d0 = scan_table(d0_table, cache_dir)
         filtered_d0 = lazy_d0.join(valid_cases_lazy, on="case_id", how="inner")
         # Depth 0 does not need aggregation, ready for join
         lazy_tables_to_join.append((d0_table, filtered_d0))
@@ -131,9 +118,6 @@ def run_pipeline(
     final_df = final_lazy.collect(engine="streaming")
 
     # 6. Imputation & Categorical Encoding
-    import pickle
-    from pathlib import Path
-
     artifact_dir = Path(config.artifact_dir)
     state_path = artifact_dir / "imputer_state.pkl"
 
