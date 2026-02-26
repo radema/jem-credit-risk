@@ -119,5 +119,31 @@ def handle_missing_and_categoricals(
     if cat_cols:
         df = df.with_columns(freq_exprs)
 
+    if is_fitting:
+        state["final_columns"] = df.columns
+    else:
+        # Schema Alignment: Ensure all columns from training are present
+        train_cols = state.get("final_columns", [])
+        if train_cols:
+            missing_cols = [c for c in train_cols if c not in df.columns]
+            if missing_cols:
+                logger.info(
+                    f"Adding {len(missing_cols)} missing columns to the test set."
+                )
+                # We'll fill with 0 or MISSING based on the col name/state
+                fill_values = {}
+                for c in missing_cols:
+                    if c in state["medians"]:
+                        fill_values[c] = state["medians"][c]
+                    else:
+                        fill_values[c] = 0  # Default fallback
+
+                df = df.with_columns(
+                    [pl.lit(v).alias(c) for c, v in fill_values.items()]
+                )
+
+            # Reorder columns to match training and drop any extra columns in test
+            df = df.select(train_cols)
+
     logger.info("Completed handling of missing values and categoricals.")
     return df, state

@@ -22,18 +22,34 @@ def run_pipeline(
     """
     Orchestrates the data pipeline using an end-to-end Lazy execution graph.
     """
-    logger.info("--- Starting Data Pipeline Run ---")
+    is_inference = config.is_inference
+    mode_str = "INFERENCE" if is_inference else "TRAINING"
+    logger.info(f"--- Starting Data Pipeline Run ({mode_str} Mode) ---")
+
+    # Prefix mapping: train -> test if in inference mode
+    def map_table(t: str) -> str:
+        return t.replace("train_", "test_") if is_inference else t
+
+    base_table = map_table("train_base")
+    d0_tables = [map_table(t) for t in depth_0_tables]
+    d1_tables = [map_table(t) for t in depth_1_tables]
+    d2_tables = [map_table(t) for t in depth_2_tables]
 
     cache_dir = extract_relevant_parquets(config.data_dir, config.cache_dir)
 
     # 1. Base Loader & Sampling
-    logger.info("Loading Base Table...")
-    base_lazy = scan_table("train_base", cache_dir)
+    logger.info(f"Loading Base Table: {base_table}")
+    base_lazy = scan_table(base_table, cache_dir)
 
-    # Stratified Sampling (returns a LazyFrame containing valid case_ids)
-    valid_cases_lazy = generate_stratified_sample(
-        base_lazy, sample_ratio=config.sample_ratio
-    )
+    if is_inference:
+        logger.info("Process all case_ids for inference.")
+        # No sampling in inference mode, keep case_ids from base
+        valid_cases_lazy = base_lazy.select("case_id")
+    else:
+        # Stratified Sampling (returns a LazyFrame containing valid case_ids)
+        valid_cases_lazy = generate_stratified_sample(
+            base_lazy, sample_ratio=config.sample_ratio
+        )
 
     # Base dataset filtered lazily via inner join
     final_lazy = base_lazy.join(valid_cases_lazy, on="case_id", how="inner")
@@ -43,10 +59,10 @@ def run_pipeline(
     d2_aggs_by_parent = {}
 
     # 2. Process Depth 2
-    for d2_table in depth_2_tables:
+    for d2_table in d2_tables:
         logger.info(f"Processing Depth-2 Table: {d2_table}")
         lazy_d2 = scan_table(d2_table, cache_dir)
-        filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="left")
+        filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Aggregate depth 2 -> depth 1 grain
         agg_d2 = aggregate_depth_2(filtered_d2)
@@ -60,7 +76,7 @@ def run_pipeline(
     lazy_tables_to_join = []
 
     # 3. Process Depth 1
-    for d1_table in depth_1_tables:
+    for d1_table in d1_tables:
         logger.info(f"Processing Depth-1 Table: {d1_table}")
         lazy_d1 = scan_table(d1_table, cache_dir)
         filtered_d1 = lazy_d1.join(valid_cases_lazy, on="case_id", how="inner")
@@ -78,7 +94,7 @@ def run_pipeline(
         lazy_tables_to_join.append((d1_table, agg_d0))
 
     # 4. Process Depth 0
-    for d0_table in depth_0_tables:
+    for d0_table in d0_tables:
         logger.info(f"Processing Depth-0 Table: {d0_table}")
         lazy_d0 = scan_table(d0_table, cache_dir)
         filtered_d0 = lazy_d0.join(valid_cases_lazy, on="case_id", how="inner")
@@ -99,24 +115,44 @@ def run_pipeline(
     final_df = final_lazy.collect(engine="streaming")
 
     # 6. Imputation & Categorical Encoding
-    logger.info("Handling missing values and frequency encoding categoricals...")
-    final_df, imputer_state = handle_missing_and_categoricals(final_df)
-
-    # Save Imputer state
     import pickle
     from pathlib import Path
 
     artifact_dir = Path(config.artifact_dir)
-    artifact_dir.mkdir(parents=True, exist_ok=True)
     state_path = artifact_dir / "imputer_state.pkl"
-    with open(state_path, "wb") as f:
-        pickle.dump(imputer_state, f)
-    logger.info(f"Saved imputer state to {state_path}")
 
-    # 7. EDA & Export
-    logger.info("Execution complete. Proceeding to EDA and Export.")
-    evaluate_eda_stats(final_df, "data/processed/feature_statistics.log")
-    export_to_parquet(final_df, "data/processed/train_features_unscaled.parquet")
+    imputer_state = None
+    if is_inference:
+        logger.info(f"Loading imputer state from {state_path}...")
+        if state_path.exists():
+            with open(state_path, "rb") as f:
+                imputer_state = pickle.load(f)
+        else:
+            logger.error(
+                f"Imputer state NOT found at {state_path}! Proceeding without state (not recommended for inference)."
+            )
+
+    logger.info("Handling missing values and frequency encoding categoricals...")
+    final_df, imputer_state = handle_missing_and_categoricals(
+        final_df, state=imputer_state
+    )
+
+    if not is_inference:
+        # Save Imputer state only during training
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        with open(state_path, "wb") as f:
+            pickle.dump(imputer_state, f)
+        logger.info(f"Saved imputer state to {state_path}")
+
+    # 7. Export
+    prefix = "test" if is_inference else "train"
+    export_path = f"data/processed/{prefix}_features_unscaled.parquet"
+    logger.info(f"Execution complete. Exporting to {export_path}")
+
+    if not is_inference:
+        evaluate_eda_stats(final_df, "data/processed/feature_statistics.log")
+
+    export_to_parquet(final_df, export_path)
 
     logger.info(
         f"--- Data Pipeline Run Finished Successfully (Shape: {final_df.shape}) ---"
