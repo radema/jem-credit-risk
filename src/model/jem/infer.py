@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import logging
 from torch.utils.data import DataLoader
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from src.model.jem.model import TabularJEM
 from src.model.autoencoder.model import TabularAutoencoder
 from src.model.jem.scaler import TorchStandardScaler
@@ -16,7 +16,8 @@ def perform_inference(
     jem: torch.nn.Module,
     loader: DataLoader,
     device: torch.device,
-) -> Tuple[List[int], np.ndarray]:
+    return_energies: bool = False,
+) -> Tuple[List[int], np.ndarray, Optional[np.ndarray]]:
     """
     Runs an end-to-end inference loop over a DataLoader.
     Ensures memory efficiency by processing in batches and performing
@@ -28,9 +29,10 @@ def perform_inference(
         jem: Pre-trained TabularJEM instance.
         loader: DataLoader yielding (case_id, x_batch).
         device: Torch device (cpu/cuda/mps).
+        return_energies: Whether to return the energy of each sample.
 
     Returns:
-        tuple: (list of case_ids, numpy array of score probabilities).
+        tuple: (list of case_ids, numpy array of score probabilities, optional energy array).
     """
     # Initialize all modules into eval mode
     scaler.to(device).eval()
@@ -39,6 +41,7 @@ def perform_inference(
 
     all_case_ids = []
     all_probs = []
+    all_energies = []
 
     logger.info("Executing Batch Inference...")
 
@@ -50,6 +53,7 @@ def perform_inference(
             x_scaled = scaler.transform(x_batch)
 
             # 2. Project to Latent Space
+            # TabularAutoencoder has .encode(x)
             z = autoencoder.encode(x_scaled)
 
             # 3. Logistic Forward Pass
@@ -60,6 +64,13 @@ def perform_inference(
             # JEM outputs unnormalized logits for each class.
             # We apply Softmax to get probabilities and select class 1 (Credit Default).
             probs = torch.softmax(logits, dim=1)[:, 1]
+            all_probs.append(probs.cpu().numpy())
+
+            # 5. Energy (Optional)
+            if return_energies:
+                # TabularJEM compute_energy(z) = -LogSumExp(logits)
+                energies = jem.compute_energy(z)
+                all_energies.append(energies.cpu().numpy())
 
             # Storage
             if torch.is_tensor(case_ids):
@@ -67,13 +78,13 @@ def perform_inference(
             else:
                 all_case_ids.extend(case_ids)
 
-            all_probs.append(probs.cpu().numpy())
-
     # Consolidate results
     final_probs = np.concatenate(all_probs)
+    final_energies = np.concatenate(all_energies) if return_energies else None
+
     logger.info(f"Inference Loop complete. Processed {len(all_case_ids)} samples.")
 
-    return all_case_ids, final_probs
+    return all_case_ids, final_probs, final_energies
 
 
 def load_inference_pipeline(
