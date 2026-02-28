@@ -344,9 +344,9 @@ class ChunkedParquetDataset(IterableDataset):
             y_np = df["target"].to_numpy()
             w_np = df["WEEK_NUM"].to_numpy()
 
-            x_t = torch.from_numpy(x_np).to(torch.float32)
-            y_t = torch.from_numpy(y_np).to(torch.long)
-            w_t = torch.from_numpy(w_np).to(torch.long)
+            x_t = torch.from_numpy(x_np.copy()).to(torch.float32)
+            y_t = torch.from_numpy(y_np.copy()).to(torch.long)
+            w_t = torch.from_numpy(w_np.copy()).to(torch.long)
 
             # Apply scaling
             if self.scaler is not None:
