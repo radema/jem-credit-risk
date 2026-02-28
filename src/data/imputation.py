@@ -52,6 +52,46 @@ def handle_missing_and_categoricals(
         f"Processing {len(numeric_cols)} numeric columns and {len(cat_cols)} categorical columns."
     )
 
+    if is_fitting:
+        state["numeric_cols"] = numeric_cols
+        state["cat_cols"] = cat_cols
+    else:
+        # Task 1.2 - Schema alignment before imputation
+        if "numeric_cols" in state:
+            expected_numeric = state.get("numeric_cols", [])
+            expected_cat = state.get("cat_cols", [])
+
+            # Inject missing columns
+            new_cols = []
+            for col in expected_numeric:
+                if col not in df.columns:
+                    # Filling with median as per plan
+                    new_cols.append(pl.lit(state["medians"].get(col, 0.0)).alias(col))
+            for col in expected_cat:
+                if col not in df.columns:
+                    new_cols.append(pl.lit("MISSING").alias(col))
+
+            if new_cols:
+                logger.info(
+                    f"Injecting {len(new_cols)} missing columns before imputation."
+                )
+                df = df.with_columns(new_cols)
+
+            # Drop extra columns
+            keep_cols = set(expected_numeric + expected_cat + exclude_cols)
+            extra_cols = [c for c in df.columns if c not in keep_cols]
+            if extra_cols:
+                logger.info(
+                    f"Dropping {len(extra_cols)} extra columns before imputation."
+                )
+                df = df.drop(extra_cols)
+
+            # Use state-defined columns for the loops below
+            numeric_cols = expected_numeric
+            cat_cols = expected_cat
+            # Refresh schema for subsequent type lookups
+            schema = df.schema
+
     # 1. Numeric: create missing indicator exprs
     null_exprs = []
     fill_num_exprs = []

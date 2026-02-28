@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import polars as pl
+import json
+from pathlib import Path
 from sklearn.metrics import roc_auc_score
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler, TensorDataset
 from src.model.jem.scaler import TorchStandardScaler
@@ -108,6 +110,18 @@ def get_feature_cols(df: pl.DataFrame) -> list[str]:
     ]
 
 
+def load_feature_cols(artifact_dir: str) -> list[str]:
+    """Loads the persisted feature column list from the artifact directory."""
+    feature_cols_path = Path(artifact_dir) / "feature_cols.json"
+    if not feature_cols_path.exists():
+        raise FileNotFoundError(
+            f"Feature columns file not found at {feature_cols_path}. "
+            "Ensure training has been run with the updated pipeline."
+        )
+    with open(feature_cols_path, "r") as f:
+        return json.load(f)
+
+
 def split_data_chronologically(df: pl.DataFrame, val_weeks: int = 12):
     """Splits dataframe into train and validation sets based on WEEK_NUM."""
     max_week = df["WEEK_NUM"].max()
@@ -117,7 +131,10 @@ def split_data_chronologically(df: pl.DataFrame, val_weeks: int = 12):
 
 
 def get_dataloaders(
-    df_train: pl.DataFrame, df_val: pl.DataFrame, batch_size: int = 256
+    df_train: pl.DataFrame,
+    df_val: pl.DataFrame,
+    batch_size: int = 256,
+    artifact_dir: str | None = None,
 ):
     """Prepares DataLoaders for train and validation using weighted random sampling."""
     feature_cols = get_feature_cols(df_train)
@@ -133,6 +150,14 @@ def get_dataloaders(
         feature_cols = [c for c in feature_cols if c not in low_var_cols]
 
     print(f"Features after low-variance filtering: {len(feature_cols)}")
+
+    # Persist the final feature columns if artifact_dir is provided
+    if artifact_dir is not None:
+        feature_cols_path = Path(artifact_dir) / "feature_cols.json"
+        feature_cols_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(feature_cols_path, "w") as f:
+            json.dump(feature_cols, f)
+        print(f"Saved feature_cols to {feature_cols_path}")
 
     scaler = TorchStandardScaler(num_features=len(feature_cols))
 
