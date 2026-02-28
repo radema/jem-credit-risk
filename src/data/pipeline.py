@@ -11,7 +11,11 @@ from src.data.loader import scan_table
 from src.data.sampling import generate_stratified_sample
 from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
 from src.data.imputation import handle_missing_and_categoricals
-from src.data.export import evaluate_eda_stats, export_to_parquet
+from src.data.export import (
+    evaluate_eda_stats,
+    export_to_parquet,
+    export_to_chunked_parquet,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +156,14 @@ def run_pipeline(
     if not is_inference:
         evaluate_eda_stats(final_df, "data/processed/feature_statistics.log")
 
-    export_to_parquet(final_df, export_path)
+    if config.chunked_export and not is_inference:
+        chunk_dir = "data/processed/chunks"
+        chunk_paths = export_to_chunked_parquet(
+            final_df, chunk_dir, chunk_size=config.chunk_size, prefix=f"{prefix}_chunk"
+        )
+        logger.info(f"Exported {len(chunk_paths)} chunks to {chunk_dir}")
+    else:
+        export_to_parquet(final_df, export_path)
 
     logger.info(
         f"--- Data Pipeline Run Finished Successfully (Shape: {final_df.shape}) ---"
