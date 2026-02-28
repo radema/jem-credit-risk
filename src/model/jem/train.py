@@ -71,7 +71,7 @@ def train_jem_epoch(
             all_preds.append(probs.cpu().numpy())
             all_weeks.append(weeks.numpy())
 
-    num_batches = len(loader)
+    num_batches = batch_idx + 1  # Works with both map-style and iterable loaders
     all_targets = np.concatenate(all_targets)
     all_preds = np.concatenate(all_preds)
     all_weeks = np.concatenate(all_weeks)
