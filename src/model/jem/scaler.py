@@ -99,9 +99,15 @@ class TorchStandardScaler(nn.Module):
     @classmethod
     def load(cls, path: str) -> "TorchStandardScaler":
         """Loads the scaler state from a file."""
-        state = torch.load(path)
-        scaler = cls(num_features=state["num_features"], eps=state.get("eps", 1e-8))
-        scaler.load_state_dict(state["state_dict"])
+        state = torch.load(path, map_location="cpu", weights_only=True)
+        if "num_features" in state:
+            scaler = cls(num_features=state["num_features"], eps=state.get("eps", 1e-8))
+            scaler.load_state_dict(state["state_dict"])
+        else:
+            # It's just a raw state_dict
+            num_features = state["mean"].shape[0]
+            scaler = cls(num_features=num_features)
+            scaler.load_state_dict(state)
         return scaler
 
     def fit_transform(self, x: torch.Tensor) -> torch.Tensor:
