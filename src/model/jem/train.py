@@ -5,11 +5,7 @@ from torch.utils.data import DataLoader
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
 from src.model.jem.loss import JEMLoss
-from src.model.jem.data_utils import (
-    calculate_gini_stability,
-    get_dataloaders,
-    get_latent_dataloaders,
-)
+from src.model.jem.data_utils import calculate_gini_stability
 
 logger = logging.getLogger(__name__)
 
@@ -114,4 +110,6 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
         "stability_result": stability_metrics,
         "avg_energy": float(np.mean(all_energies)),
         "energies": all_energies,
+        "probs": all_preds,
+        "labels": all_targets,
     }

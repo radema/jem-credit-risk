@@ -57,7 +57,7 @@ def main():
 
     # 3. Create DataLoaders
     train_loader, val_loader_for_eval, scaler, feature_cols = get_dataloaders(
-        df_train, df_val, batch_size=256
+        df_train, df_val, batch_size=256, artifact_dir="models/artifacts"
     )
     input_dim = len(feature_cols)
     latent_dim = 128

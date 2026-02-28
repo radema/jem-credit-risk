@@ -116,12 +116,18 @@ def load_inference_pipeline(
         scaler = TorchStandardScaler(num_features=input_dim)
         logger.warning(f"Scaler NOT found at {scaler_path}. Using empty scaler.")
 
-    # 2. Autoencoder
-    ae = TabularAutoencoder(input_dim=input_dim, latent_dim=latent_dim)
+    ae = TabularAutoencoder(input_dim=input_dim, latent_dim=latent_dim).to(device)
     ae_path = os.path.join(artifact_dir, "autoencoder.pth")
     if os.path.exists(ae_path):
-        ae.load_state_dict(torch.load(ae_path, map_location=device, weights_only=True))
-        logger.info(f"Loaded Autoencoder from {ae_path}")
+        state_dict = torch.load(ae_path, map_location=device, weights_only=True)
+        # Adapt keys if the saved dictionary contains only the encoder state
+        # (meaning the keys look like "0.weight" instead of "encoder.0.weight")
+        if not any(k.startswith("encoder.") for k in state_dict.keys()):
+            state_dict = {f"encoder.{k}": v for k, v in state_dict.items()}
+
+        # strict=False allows loading just the encoder while ignoring the decoder
+        ae.load_state_dict(state_dict, strict=False)
+        logger.info(f"Loaded Autoencoder (Encoder weights) from {ae_path}")
 
     # 3. JEM
     jem = TabularJEM(input_dim=latent_dim, num_classes=num_classes, config=jem_config)
