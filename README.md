@@ -66,15 +66,21 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 .
 ├── data/
 │   ├── raw/                 # Kaggle parquet files and csv dictionaries
-│   └── processed/           # Processed torch tensors will be saved here
+│   └── processed/           # Processed artifacts
+│       ├── chunks/          # Chunked Parquet partitions (default training export)
+│       ├── latent_chunks/   # Encoded latent .pt chunk files
+│       ├── scaler.pt        # TorchStandardScaler state
+│       ├── encoder.pt       # Autoencoder encoder weights
+│       └── feature_cols.json
 ├── docs/                    
 │   ├── architecture/        # ARCHITECTURE.md and THEORY.md
-│   ├── data/                # data_dictionary.md
+│   ├── data/                # data_dictionary.md, PIPELINE.md
 │   └── planning/            # ROADMAP.md
 ├── src/
-│   ├── data                 # Polars feature engineering and aggregations
+│   ├── data                 # Polars feature engineering, export (chunked + single-file)
 │   ├── model/autoencoder    # Pre-training tabular autoencoder for latent space
-│   └── model/jem            # PyTorch TabularJEM, SGLDSampler, training loops
+│   └── model/jem            # PyTorch TabularJEM, SGLDSampler, data utils, training loops
+├── tests/                   # Unit and integration tests (incl. chunked pipeline E2E)
 ├── pyproject.toml
 └── README.md
 ```
@@ -107,9 +113,9 @@ The codebase is split into three core modules. This separation of concerns ensur
 
 Step 1: Execute `notebooks/JEM_Execution_Pipeline.ipynb` for the full data and training workflow, OR run the automated scripts:
 
-Step 2: Run `src/model/autoencoder/train_autoencoder.py` to map features to the latent space mapping tensors `Z`. 
+Step 2: Run `src/model/autoencoder/train_autoencoder.py` to map features to the latent space mapping tensors `Z`. When chunked data is detected in `data/processed/chunks/`, this script automatically uses `streaming_fit()` and `ChunkedParquetDataset` for memory-bounded training. Otherwise, falls back to in-memory mode.
 
-Step 3: Run `src/model/jem/train_latent.py` to initiate the dual-objective training loop on the `Z` embeddings and serialize the final MLOps deployment artifact.
+Step 3: Run `src/model/jem/train_latent.py` to initiate the dual-objective training loop on the `Z` embeddings. When `data/processed/latent_chunks/` exists, it uses `ChunkedLatentDataset` for streaming. Serializes the final LatentJEMWrapper artifact.
 
 ## Design Philosophy
 

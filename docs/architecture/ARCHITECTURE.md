@@ -10,7 +10,7 @@
   2. Perform temporal aggregations (mean, max, var) on Depth 1 & 2 relational tables.
   3. Join aggregated tables onto the Base table grain (`case_id`).
   4. Handle missing values and apply Frequency Encoding tracking state via `imputer_state.pkl`.
-  5. Output unscaled feature parquet.
+  5. Export: **Chunked Parquet** (default, `chunked_export=True`) writes numbered partitions to `data/processed/chunks/` with configurable `chunk_size` (default: 200k rows). Falls back to single-file export when disabled.
 
 ### 1.2 Dimensionality Reduction (Autoencoder)
 * **Goal**: Overcome sparsity and strict discrete constraints of tabular datasets.
@@ -23,6 +23,8 @@
 * **Outputs**: Unnormalized logits mapping to Normalizing Flows (Softmax) and Energy landscapes (LogSumExp).
 
 ### 1.4 Generation Engine (SGLD & Replay Buffer)
+> [!NOTE]
+> The SGLD Replay Buffer (fixed 10k samples) is fully compatible with chunked streaming — it receives detached mini-batches and requires no API changes.
 * **Goal**: Provide contrastive negative samples for EBM training.
 * **Mechanism**: 
   1. Seeding from a Replay Buffer or random noise (bound by `reinit_freq=0.05`).
@@ -30,51 +32,84 @@
 
 ---
 
+### 1.5 Chunked Training Pipeline
+* **Goal**: Keep peak memory bounded to `O(chunk_size × num_features)` regardless of total dataset size.
+* **Components**:
+  - **`export_to_chunked_parquet()`** — Writes numbered `.parquet` partitions (≤200k rows each).
+  - **`TorchStandardScaler.streaming_fit()`** — Welford's online algorithm (FP64 accumulators) computes global mean/variance in a single pre-pass.
+  - **`ChunkedParquetDataset`** (`IterableDataset`) — Reads one chunk at a time, applies scaler, fills a shuffle buffer (default 50k rows), yields `(x, y, week, sample_weight)`.
+  - **`ChunkedLatentDataset`** (`IterableDataset`) — Same streaming semantics over `.pt` latent chunk files.
+  - **Chunk-level class weighting** — `1/class_count[y]` computed per-chunk, replacing global `WeightedRandomSampler`.
+* **Epoch Semantics**: 1 epoch = 1 full pass over ALL chunks. Chunk order reshuffled per epoch via `set_epoch()`.
+* **Constraints**: `num_workers=0` (no multi-worker support yet). Validation remains in-memory.
+
+---
+
 ## 2. High-Level Data Flow Diagram
 
 ```mermaid
 graph TD
-    subgraph Data Pipeline
-        A[Raw Parquet] --> B[Polars LazyFrame]
-        B --> C[Depth 1 & 2 Aggregation]
-        C --> D[Left Join Base case_id]
-        D --> E[Imputation & Encoding]
-        E --> F[(Processed DataFrame)]
+    subgraph "Data Pipeline"
+        A["Raw Parquet"] --> B["Polars LazyFrame"]
+        B --> C["Depth 1 & 2 Aggregation"]
+        C --> D["Left Join Base case_id"]
+        D --> E["Imputation & Encoding"]
+        E --> F{"chunked_export?"}
     end
 
-    subgraph Autoencoder Projection
-        F -->|TorchStandardScaler| G[Scaled Tensors]
-        G --> H[TabularAutoencoder 64D]
-        H --> I[(Latent Z)]
+    F -->|"True (default)"| CHUNKS["data/processed/chunks/<br/>train_chunk_001.parquet<br/>..."]
+    F -->|"False (legacy)"| SINGLE["Single Parquet"]
+
+    subgraph "Chunked Training Path (Default)"
+        CHUNKS -->|"Sequential read"| WEL["Welford's streaming_fit()"]
+        WEL --> SCALER["TorchStandardScaler (fitted)"]
+        CHUNKS --> CPD["ChunkedParquetDataset<br/>(IterableDataset + Shuffle Buffer)"]
+        SCALER -->|"transform()"| CPD
+        CPD --> AE_TRAIN["AE Training Loop"]
+        AE_TRAIN -->|"chunk-by-chunk encode"| LAT_CHUNKS["latent_chunk_XXX.pt"]
+        LAT_CHUNKS --> CLD["ChunkedLatentDataset<br/>(IterableDataset)"]
+        CLD --> JEM_TRAIN["JEM Training Loop"]
     end
 
-    subgraph Joint Energy-Based Model
-        I -->|Batch| J[TabularJEM f_theta]
-        J --> K[Unnormalized Logits]
-        
-        K -->|Softmax| L[Classification P y=1|x]
-        K -->|-LogSumExp| M[Energy E_real]
+    subgraph "In-Memory Path (Fallback)"
+        SINGLE -->|"TorchStandardScaler.fit()"| G["Scaled Tensors"]
+        G --> H["CreditRiskDataset + WeightedRandomSampler"]
+        H --> AE_MEM["AE Training"]
+        AE_MEM --> LAT_MEM["latent_train.pt"]
+        LAT_MEM --> JEM_MEM["JEM Training"]
     end
 
-    subgraph SGLD Sampler
-        N[(Replay Buffer)] -->|Noise| O[z_init]
-        O -->|Gradient Ascent| P[z_fake]
+    subgraph "Joint Energy-Based Model"
+        JEM_TRAIN --> J["TabularJEM f_theta"]
+        JEM_MEM --> J
+        J --> K["Unnormalized Logits"]
+        K -->|"Softmax"| L["Classification P(y=1|x)"]
+        K -->|"-LogSumExp"| M["Energy E_real"]
+    end
+
+    subgraph "SGLD Sampler"
+        N["Replay Buffer (10k)"] -->|"Noise"| O["z_init"]
+        O -->|"Gradient Ascent"| P["z_fake"]
         P --> J
-        P -->|-LogSumExp| Q[Fake Energy E_fake]
-        P -->|Update| N
+        P -->|"-LogSumExp"| Q["Fake Energy E_fake"]
+        P -->|"Update"| N
     end
 
-    subgraph Loss Formulation
-        M --> R((Total Loss))
+    subgraph "Loss Formulation"
+        M --> R(("Total Loss"))
         Q --> R
-        L -->|Cross Entropy| R
-        R -->|Adam| J
+        L -->|"Cross Entropy"| R
+        R -->|"Adam"| J
     end
 ```
 
 ---
 
 ## 3. Inference Orchestration
+
+> [!NOTE]
+> The inference pipeline is **unaffected** by the chunked training changes. It already processes data in constant-memory batches via `DataLoader` and does not depend on the training export format.
+
 The pipeline runs inference via `scripts/generate_submission.py` in 4 explicit phases:
 
 1. **Phase 1: Data Pipeline (INFERENCE mode)** 

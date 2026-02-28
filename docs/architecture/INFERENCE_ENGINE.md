@@ -6,6 +6,9 @@ The JEM Inference Engine (`src/model/jem/infer.py`) is a PyTorch-based inference
 * **Target Constraint**: Must execute under Kaggle's memory limits ($\sim 16\text{GB}$).
 * **Solution**: Constant memory profile using PyTorch `DataLoader` streams.
 
+> [!NOTE]
+> The inference engine is **independent of the training data format**. Whether training used chunked Parquet partitions or a single in-memory DataFrame, inference loads the same model artifacts (`scaler.pth`, `autoencoder.pth`, `jem_model.pth`, `feature_cols.json`) and processes test data in constant-memory batches.
+
 ## 2. Component Pipeline
 The forward pass runs predictably through pre-trained frozen modules (`torch.no_grad()` enabled):
 

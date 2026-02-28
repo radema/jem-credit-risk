@@ -32,9 +32,15 @@ Test data chunks may differ in schema from the training set (e.g., missing featu
 
 ## 4. Execution Examples
 
-### Training Mode
+### Training Mode (Chunked — Default)
 ```python
-cfg = DataPipelineConfig(sample_ratio=0.05, is_inference=False)
+cfg = DataPipelineConfig(sample_ratio=0.05, is_inference=False, chunked_export=True, chunk_size=200_000)
+run_pipeline(cfg, ...) # Saves imputer_state.pkl and data/processed/chunks/train_chunk_*.parquet
+```
+
+### Training Mode (Legacy In-Memory)
+```python
+cfg = DataPipelineConfig(sample_ratio=0.05, is_inference=False, chunked_export=False)
 run_pipeline(cfg, ...) # Saves imputer_state.pkl and train_features_unscaled.parquet
 ```
 
@@ -43,3 +49,32 @@ run_pipeline(cfg, ...) # Saves imputer_state.pkl and train_features_unscaled.par
 cfg = DataPipelineConfig(sample_ratio=1.0, is_inference=True, artifact_dir="models/artifacts")
 run_pipeline(cfg, ...) # Loads imputer_state.pkl and saves test_features_unscaled.parquet
 ```
+
+---
+
+## 5. Chunked Export Mode
+
+When `DataPipelineConfig.chunked_export=True` (the default), the pipeline writes processed training data as numbered Parquet partitions instead of a single file.
+
+### Configuration
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `chunked_export` | `bool` | `True` | Enable partitioned export |
+| `chunk_size` | `int` | `200,000` | Maximum rows per partition file |
+
+### Output Layout
+```
+data/processed/chunks/
+├── train_chunk_001.parquet    # ≤200k rows
+├── train_chunk_002.parquet
+└── train_chunk_NNN.parquet
+```
+
+### Downstream Consumers
+1. **`TorchStandardScaler.streaming_fit()`** — Reads chunks sequentially to compute global mean/variance via Welford's online algorithm. Memory: O(num_features).
+2. **`ChunkedParquetDataset`** — PyTorch `IterableDataset` that reads one chunk at a time, applies the fitted scaler, and uses a shuffle buffer (default 50k rows) for pseudo-random ordering.
+3. **`generate_latent_chunks()`** — After AE training, encodes each chunk independently and saves `latent_chunk_XXX.pt` files to `data/processed/latent_chunks/`.
+4. **`ChunkedLatentDataset`** — Streams `.pt` latent files for JEM training.
+
+> [!IMPORTANT]
+> The chunked export path is for **training only**. Inference continues to use the existing single-file pipeline.
