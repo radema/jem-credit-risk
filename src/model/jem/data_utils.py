@@ -2,9 +2,17 @@ import torch
 import numpy as np
 import polars as pl
 import json
+import random
 from pathlib import Path
+from typing import Iterator, Any
 from sklearn.metrics import roc_auc_score
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler, TensorDataset
+from torch.utils.data import (
+    Dataset,
+    DataLoader,
+    WeightedRandomSampler,
+    TensorDataset,
+    IterableDataset,
+)
 from src.model.jem.scaler import TorchStandardScaler
 
 
@@ -236,3 +244,126 @@ def get_inference_dataloader(
     """Returns a simple DataLoader yielding (case_id, x_batch) for inference."""
     dataset = InferenceDataset(df, feature_cols)
     return DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+
+class _ShuffleBuffer:
+    """Fixed-size buffer that yields random samples when full."""
+
+    def __init__(self, capacity: int, seed: int | None = None):
+        self.capacity = capacity
+        self.buffer = []
+        self.rng = random.Random(seed)
+
+    def add(self, item: Any):
+        self.buffer.append(item)
+
+    def is_full(self) -> bool:
+        return len(self.buffer) >= self.capacity
+
+    def pop_random(self) -> Any:
+        if not self.buffer:
+            raise IndexError("pop from empty buffer")
+        idx = self.rng.randint(0, len(self.buffer) - 1)
+        # O(1) removal by swapping with last element
+        self.buffer[idx], self.buffer[-1] = self.buffer[-1], self.buffer[idx]
+        return self.buffer.pop()
+
+    def drain(self) -> Iterator[Any]:
+        self.rng.shuffle(self.buffer)
+        yield from self.buffer
+        self.buffer.clear()
+
+    def __len__(self):
+        return len(self.buffer)
+
+
+class ChunkedParquetDataset(IterableDataset):
+    """
+    Memory-bounded IterableDataset that reads Parquet chunk files
+    from disk, applies optional scaling, and uses a shuffle buffer
+    for pseudo-random sample ordering.
+    """
+
+    def __init__(
+        self,
+        chunk_paths: list[Path],
+        feature_cols: list[str],
+        scaler: TorchStandardScaler | None = None,
+        shuffle_buffer_size: int = 50_000,
+        shuffle_chunks: bool = True,
+        seed: int | None = None,
+    ):
+        super().__init__()
+        self.chunk_paths = [Path(p) for p in chunk_paths]
+        self.feature_cols = feature_cols
+        self.scaler = scaler
+        self.shuffle_buffer_size = shuffle_buffer_size
+        self.shuffle_chunks = shuffle_chunks
+        self.seed = seed
+        self._epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        """Set the epoch number for deterministic chunk shuffling."""
+        self._epoch = epoch
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+        """
+        Yields (x, y, week_num, sample_weight) tuples.
+        """
+        worker_info = torch.utils.data.get_worker_info()
+
+        # Determine chunks for this worker
+        chunks = self.chunk_paths.copy()
+        if self.shuffle_chunks:
+            # Deterministic shuffle per epoch
+            rng = random.Random(
+                self.seed + self._epoch if self.seed is not None else None
+            )
+            rng.shuffle(chunks)
+
+        if worker_info is not None:
+            # Partition chunks among workers
+            per_worker = int(np.ceil(len(chunks) / float(worker_info.num_workers)))
+            iter_start = worker_info.id * per_worker
+            iter_end = min(iter_start + per_worker, len(chunks))
+            chunks = chunks[iter_start:iter_end]
+
+        buffer = _ShuffleBuffer(
+            self.shuffle_buffer_size,
+            seed=self.seed + self._epoch if self.seed is not None else None,
+        )
+
+        for path in chunks:
+            # Read chunk
+            df = pl.read_parquet(path)
+
+            # Extract components
+            x_np = df.select(self.feature_cols).to_numpy()
+            y_np = df["target"].to_numpy()
+            w_np = df["WEEK_NUM"].to_numpy()
+
+            x_t = torch.from_numpy(x_np).to(torch.float32)
+            y_t = torch.from_numpy(y_np).to(torch.long)
+            w_t = torch.from_numpy(w_np).to(torch.long)
+
+            # Apply scaling
+            if self.scaler is not None:
+                x_t = self.scaler.transform(x_t)
+
+            # Compute per-sample class weights for this chunk
+            class_counts = torch.bincount(y_t, minlength=2).float().clamp(min=1.0)
+            class_weights = 1.0 / class_counts
+            sample_weights = class_weights[y_t]
+
+            # Zip and add to shuffle buffer
+            for i in range(len(y_t)):
+                item = (x_t[i], y_t[i], w_t[i], sample_weights[i])
+                buffer.add(item)
+
+                if buffer.is_full():
+                    yield buffer.pop_random()
+
+        # Drain remaining items
+        yield from buffer.drain()
