@@ -67,11 +67,13 @@ class TestChunkedLatentDataset:
 
         dataset = ChunkedLatentDataset(chunk_paths=paths, shuffle_buffer_size=1, seed=0)
         rows = list(dataset)
+        # Normalized weights: n / (n_classes * class_count)
+        # n=50, n_classes=2, class_0=40, class_1=10
         for z, y, week, weight in rows:
             if y == 0:
-                assert pytest.approx(weight.item()) == 1.0 / 40.0  # 40 class-0 samples
+                assert pytest.approx(weight.item()) == 50.0 / (2 * 40)  # = 0.625
             else:
-                assert pytest.approx(weight.item()) == 1.0 / 10.0  # 10 class-1 samples
+                assert pytest.approx(weight.item()) == 50.0 / (2 * 10)  # = 2.5
 
     def test_shuffle_across_epochs(self, tmp_path):
         paths = _create_latent_chunks(

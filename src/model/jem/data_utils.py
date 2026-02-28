@@ -352,9 +352,14 @@ class ChunkedParquetDataset(IterableDataset):
             if self.scaler is not None:
                 x_t = self.scaler.transform(x_t)
 
-            # Compute per-sample class weights for this chunk
-            class_counts = torch.bincount(y_t, minlength=2).float().clamp(min=1.0)
-            class_weights = 1.0 / class_counts
+            # Compute normalized per-sample class weights for this chunk
+            # Uses n / (n_classes * count) so mean weight ≈ 1.0
+            n = len(y_t)
+            n_classes = 2
+            class_counts = (
+                torch.bincount(y_t, minlength=n_classes).float().clamp(min=1.0)
+            )
+            class_weights = n / (n_classes * class_counts)
             sample_weights = class_weights[y_t]
 
             # Zip and add to shuffle buffer
@@ -433,9 +438,14 @@ class ChunkedLatentDataset(IterableDataset):
             if isinstance(w_t, np.ndarray):
                 w_t = torch.from_numpy(w_t).to(torch.long)
 
-            # Compute per-sample class weights for this chunk
-            class_counts = torch.bincount(y_t, minlength=2).float().clamp(min=1.0)
-            class_weights = 1.0 / class_counts
+            # Compute normalized per-sample class weights for this chunk
+            # Uses n / (n_classes * count) so mean weight ≈ 1.0
+            n = len(y_t)
+            n_classes = 2
+            class_counts = (
+                torch.bincount(y_t, minlength=n_classes).float().clamp(min=1.0)
+            )
+            class_weights = n / (n_classes * class_counts)
             sample_weights = class_weights[y_t]
 
             # Zip and add to shuffle buffer

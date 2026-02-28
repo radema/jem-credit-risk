@@ -135,10 +135,10 @@ def test_chunked_parquet_dataset_weights(tmp_path):
     )
 
     rows = list(dataset)
-    # Weights should be 1/8 for class 0, 1/2 for class 1
-    # Normalized? The spec says 1.0 / class_count
+    # Normalized weights: n / (n_classes * class_count)
+    # n=10, n_classes=2, class_0=8, class_1=2
     for x, y, week, weight in rows:
         if y == 0:
-            assert pytest.approx(weight.item()) == 1.0 / 8.0
+            assert pytest.approx(weight.item()) == 10.0 / (2 * 8)  # = 0.625
         else:
-            assert pytest.approx(weight.item()) == 1.0 / 2.0
+            assert pytest.approx(weight.item()) == 10.0 / (2 * 2)  # = 2.5
