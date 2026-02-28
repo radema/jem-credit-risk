@@ -1,74 +1,92 @@
-## Architectural Data Flow
+# System Architecture & Data Flow
+
+## 1. Core Components
+
+### 1.1 Data Engineering Pipeline (Polars)
+* **Goal**: Process and aggregate multi-depth relational tables into a single tabular feature matrix.
+* **Mechanism**: Lazy evaluation engine leveraging predicate pushdown.
+* **Steps**: 
+  1. Load Base table and apply stratified sampling (if training).
+  2. Perform temporal aggregations (mean, max, var) on Depth 1 & 2 relational tables.
+  3. Join aggregated tables onto the Base table grain (`case_id`).
+  4. Handle missing values and apply Frequency Encoding tracking state via `imputer_state.pkl`.
+  5. Output unscaled feature parquet.
+
+### 1.2 Dimensionality Reduction (Autoencoder)
+* **Goal**: Overcome sparsity and strict discrete constraints of tabular datasets.
+* **Mechanism**: Maps input dimensional space $D$ to a continuous latent vector $Z \in \mathbb{R}^{64}$.
+* **Usage**: Provides a strict, dense, and continuous manifold for the SGLD sampler to operate stably.
+
+### 1.3 Joint Energy-Based Model (TabularJEM)
+* **Goal**: Simultaneous discriminative classification $P(y|x)$ and generative modeling $P(x)$.
+* **Mechanism**: Multi-layer perceptron (Default `[256, 256]`) employing Spectral Normalization to enforce Lipschitz constraints.
+* **Outputs**: Unnormalized logits mapping to Normalizing Flows (Softmax) and Energy landscapes (LogSumExp).
+
+### 1.4 Generation Engine (SGLD & Replay Buffer)
+* **Goal**: Provide contrastive negative samples for EBM training.
+* **Mechanism**: 
+  1. Seeding from a Replay Buffer or random noise (bound by `reinit_freq=0.05`).
+  2. Following energy gradients via Langevin Dynamics to find $Z_{fake}$.
+
+---
+
+## 2. High-Level Data Flow Diagram
 
 ```mermaid
 graph TD
-    subgraph Polars Data Engineering Pipeline
-        A[Raw Parquet: Base, Bureau, Person] --> B[Polars LazyFrames API]
-        B --> C[Temporal Aggregations max, mean, var]
-        C --> D[Left Join onto Base table via case_id]
-        D --> D1[Missing Value Imputation & Frequency Encoding]
-        D1 --> E[StandardScaler fit on Train Fold]
-        E --> F[(Processed Tensors)]
+    subgraph Data Pipeline
+        A[Raw Parquet] --> B[Polars LazyFrame]
+        B --> C[Depth 1 & 2 Aggregation]
+        C --> D[Left Join Base case_id]
+        D --> E[Imputation & Encoding]
+        E --> F[(Processed DataFrame)]
     end
 
-    subgraph Offline Tabular Autoencoder
-        F --> G1[Encoder: 347D -> 64D]
-        G1 --> G2[(Latent Feature Tensors Z)]
+    subgraph Autoencoder Projection
+        F -->|TorchStandardScaler| G[Scaled Tensors]
+        G --> H[TabularAutoencoder 64D]
+        H --> I[(Latent Z)]
     end
 
     subgraph Joint Energy-Based Model
-        G2 -->|Batch z_real| G[MLP: f_theta]
-        G --> H[Logits: Class 0, Class 1]
+        I -->|Batch| J[TabularJEM f_theta]
+        J --> K[Unnormalized Logits]
         
-        H --> I{Softmax}
-        I --> J[Cross-Entropy Loss]
-        
-        H --> K{Negative LogSumExp}
-        K --> L[Real Energy: E_real]
+        K -->|Softmax| L[Classification P y=1|x]
+        K -->|-LogSumExp| M[Energy E_real]
     end
 
     subgraph SGLD Sampler
-        M[(64D Replay Buffer)] -->|95% Buffer, 5% Noise| N[z_init]
-        N -->|Gradient Ascent on E| O[z_fake]
-        O --> G
-        O -->|Update| M
-        O --> K
-        K --> P[Fake Energy: E_fake]
+        N[(Replay Buffer)] -->|Noise| O[z_init]
+        O -->|Gradient Ascent| P[z_fake]
+        P --> J
+        P -->|-LogSumExp| Q[Fake Energy E_fake]
+        P -->|Update| N
     end
 
     subgraph Loss Formulation
-        L --> Q((Total Loss))
-        P --> Q
-        J --> Q
-        Q -->|Gradient Descent| G
-    end
-
-    subgraph Phase 4: Output & Monitoring
-        W3 --> W4[Probabilistic Scoring]
-        W4 --> W5[submission.csv Output]
-        W4 --> W6[Internal Energy OOD Monitor]
-    end
-
-    subgraph Phase 3: Batched Inference Engine
-        W2 --> W3[TabularJEM Forward Pass]
-    end
-
-    subgraph Phase 2: Inference-Ready Preprocessing
-        W1[Raw Data Archetypes] --> W1_1[Prefix Mapping]
-        W1_1 --> W1_2[Schema Alignment]
-        W1_2 --> W2[Fitted Scaler & Encoder]
-    end
-
-    subgraph Phase 1: State Management
-        W0[Load imputer_state.pkl] --> W1_2
+        M --> R((Total Loss))
+        Q --> R
+        L -->|Cross Entropy| R
+        R -->|Adam| J
     end
 ```
 
-## Inference Phase Orchestration
+---
 
-The JEM Inference Pipeline is executed through four distinct phases:
+## 3. Inference Orchestration
+The pipeline runs inference via `scripts/generate_submission.py` in 4 explicit phases:
 
-1.  **Phase 1: State Management**: The pipeline initializes the environment by loading precomputed transformation statistics (medians, frequency maps, training schema) from the `artifact_dir`.
-2.  **Phase 2: Inference-Ready Preprocessing**: The `src.data.pipeline` executes in `is_inference=True` mode, performing automatic table prefix mapping and ensuring strict schema alignment with the training set.
-3.  **Phase 3: Batched Inference Engine**: To maintain a constant memory profile ($O(batch\_size)$), the inference engine uses a PyTorch `DataLoader` to stream features through the `TorchStandardScaler`, `TabularAutoencoder`, and `TabularJEM`.
-4.  **Phase 4: Output & Monitoring**: The final stage aggregates probabilistic scores, generates the competition-compliant `submission.csv`, and reports diagnostic **Energy** ($E(x)$) statistics to monitor for temporal distribution shifts.
+1. **Phase 1: Data Pipeline (INFERENCE mode)** 
+   * `is_inference=True`, `sample_ratio=1.0`. 
+   * Uses prefix-mapping replacing `train_` with `test_`.
+   * Restores `imputer_state.pkl` without updating it.
+2. **Phase 2: Load Pre-Trained Models**
+   * Imports `TorchStandardScaler`, `TabularAutoencoder`, and `TabularJEM`.
+   * Validates target feature dimensionality against the scaled columns.
+3. **Phase 3: Batched Inference Engine**
+   * Employs PyTorch `DataLoader` to map chunks into $O(batch\_size)$ constant memory.
+   * Derives `P(y=1|x)` through Softmax and gathers Energy $E(x)$.
+4. **Phase 4: Output & Monitoring**
+   * Exports `submission.csv` containing `case_id` and normalized `score`.
+   * Evaluates $E_{test}$ mean and variance to detect out-of-distribution (OOD) sets.
