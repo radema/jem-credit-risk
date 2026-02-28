@@ -367,3 +367,84 @@ class ChunkedParquetDataset(IterableDataset):
 
         # Drain remaining items
         yield from buffer.drain()
+
+
+class ChunkedLatentDataset(IterableDataset):
+    """
+    Memory-bounded IterableDataset that reads .pt latent chunk files sequentially
+    with shuffle buffer and chunk-level class weighting.
+    """
+
+    def __init__(
+        self,
+        chunk_paths: list[Path],
+        shuffle_buffer_size: int = 50_000,
+        shuffle_chunks: bool = True,
+        seed: int | None = None,
+    ):
+        super().__init__()
+        self.chunk_paths = [Path(p) for p in chunk_paths]
+        self.shuffle_buffer_size = shuffle_buffer_size
+        self.shuffle_chunks = shuffle_chunks
+        self.seed = seed
+        self._epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        """Set the epoch number for deterministic chunk shuffling."""
+        self._epoch = epoch
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+        """
+        Yields (z, y, week_num, sample_weight) tuples from .pt files.
+        """
+        worker_info = torch.utils.data.get_worker_info()
+
+        # Determine chunks for this worker
+        chunks = self.chunk_paths.copy()
+        if self.shuffle_chunks:
+            # Deterministic shuffle per epoch
+            rng = random.Random(
+                self.seed + self._epoch if self.seed is not None else None
+            )
+            rng.shuffle(chunks)
+
+        if worker_info is not None:
+            # Partition chunks among workers
+            per_worker = int(np.ceil(len(chunks) / float(worker_info.num_workers)))
+            iter_start = worker_info.id * per_worker
+            iter_end = min(iter_start + per_worker, len(chunks))
+            chunks = chunks[iter_start:iter_end]
+
+        buffer = _ShuffleBuffer(
+            self.shuffle_buffer_size,
+            seed=self.seed + self._epoch if self.seed is not None else None,
+        )
+
+        for path in chunks:
+            # Load latent chunk
+            data = torch.load(path, weights_only=False, map_location="cpu")
+            z_t = data["z"]
+            y_t = data["y"]
+            w_t = data["weeks"]
+
+            # Convert weeks to tensor if it's numpy from old generation scripts
+            if isinstance(w_t, np.ndarray):
+                w_t = torch.from_numpy(w_t).to(torch.long)
+
+            # Compute per-sample class weights for this chunk
+            class_counts = torch.bincount(y_t, minlength=2).float().clamp(min=1.0)
+            class_weights = 1.0 / class_counts
+            sample_weights = class_weights[y_t]
+
+            # Zip and add to shuffle buffer
+            for i in range(len(y_t)):
+                item = (z_t[i], y_t[i], w_t[i], sample_weights[i])
+                buffer.add(item)
+
+                if buffer.is_full():
+                    yield buffer.pop_random()
+
+        # Drain remaining items
+        yield from buffer.drain()

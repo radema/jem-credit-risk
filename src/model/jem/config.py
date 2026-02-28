@@ -16,3 +16,6 @@ class JEMConfig:
     # Sampler Buffer parameters
     buffer_size: int = 10000
     reinit_freq: float = 0.05
+
+    # DataLoader parameters
+    shuffle_buffer_size: int = 50_000

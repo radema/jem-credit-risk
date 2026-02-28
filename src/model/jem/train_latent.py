@@ -1,13 +1,15 @@
 import os
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 import logging
 import numpy as np
+from pathlib import Path
 from src.model.jem.config import JEMConfig
 from src.model.jem.model import TabularJEM, LatentJEMWrapper
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
 from src.model.jem.loss import JEMLoss
 from src.model.jem.train import train_jem_epoch, evaluate_jem
-from src.model.jem.data_utils import get_latent_dataloaders
+from src.model.jem.data_utils import get_latent_dataloaders, ChunkedLatentDataset
 from src.model.jem.scaler import TorchStandardScaler
 
 # Setup logging
@@ -32,18 +34,43 @@ def main():
     )
 
     # 2. Data Loading (Latent Space)
-    train_path = "data/processed/latent_train.pt"
-    val_path = "data/processed/latent_val.pt"
+    train_path = Path("data/processed/latent_train.pt")
+    val_path = Path("data/processed/latent_val.pt")
+    latent_chunks_dir = Path("data/processed/latent_chunks")
 
-    if not os.path.exists(train_path):
-        logger.error(
-            f"Latent data not found at {train_path}. Run train_autoencoder.py first."
+    if latent_chunks_dir.exists() and any(latent_chunks_dir.glob("latent_chunk_*.pt")):
+        logger.info(f"Using chunked latent data from {latent_chunks_dir}")
+        chunk_paths = sorted(latent_chunks_dir.glob("latent_chunk_*.pt"))
+        train_dataset = ChunkedLatentDataset(
+            chunk_paths=chunk_paths,
+            shuffle_buffer_size=config.shuffle_buffer_size,
         )
-        return
+        train_loader = DataLoader(train_dataset, batch_size=256)
 
-    train_loader, val_loader = get_latent_dataloaders(
-        train_path, val_path, batch_size=256
-    )
+        # Validation remains monolithic for stability if available
+        if val_path.exists():
+            _, val_loader = get_latent_dataloaders(
+                str(train_path), str(val_path), batch_size=256
+            )
+        else:
+            # Fallback or take last chunk
+            logger.warning(
+                "No monolithic validation path found, using a chunk for validation."
+            )
+            val_path = chunk_paths[-1]
+            val_data = torch.load(val_path, weights_only=False)
+            val_dataset = TensorDataset(val_data["z"], val_data["y"], val_data["weeks"])
+            val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False)
+    else:
+        if not train_path.exists():
+            logger.error(
+                f"Latent data not found at {train_path} or chunks at {latent_chunks_dir}. Run train_autoencoder.py first."
+            )
+            return
+
+        train_loader, val_loader = get_latent_dataloaders(
+            str(train_path), str(val_path), batch_size=256
+        )
 
     # 3. Model, Buffer, Sampler
     model = TabularJEM(input_dim=latent_dim, num_classes=2, config=config).to(device)

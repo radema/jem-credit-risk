@@ -27,9 +27,17 @@ def train_jem_epoch(
     total_loss, clf_loss, gen_loss, l2_loss = 0.0, 0.0, 0.0, 0.0
     all_targets, all_preds, all_weeks = [], [], []
 
-    for batch_idx, (x_real, y_real, weeks) in enumerate(loader):
+    for batch_idx, batch in enumerate(loader):
+        if len(batch) == 4:
+            x_real, y_real, weeks, sample_weight = batch
+        else:
+            x_real, y_real, weeks = batch
+            sample_weight = None
+
         x_real = x_real.to(device)
         y_real = y_real.to(device)
+        if sample_weight is not None:
+            sample_weight = sample_weight.to(device)
 
         # 1. Generate Fake Samples (requires eval mode conceptually, but we detach anyway)
         model.eval()
@@ -38,7 +46,9 @@ def train_jem_epoch(
 
         # 2. Forward pass and Loss Computation
         optimizer.zero_grad()
-        loss_dict = criterion(model, x_real, y_real, x_fake)
+        loss_dict = criterion(
+            model, x_real, y_real, x_fake, sample_weight=sample_weight
+        )
         loss = loss_dict["total_loss"]
 
         # 3. Backward and step
