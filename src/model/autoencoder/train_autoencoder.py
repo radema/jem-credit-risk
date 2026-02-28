@@ -14,7 +14,6 @@ from src.model.jem.data_utils import (
     get_dataloaders,
     get_feature_cols,
     prepare_raw_dataframe,
-    load_feature_cols,
     CreditRiskDataset,
     ChunkedParquetDataset,
 )
@@ -41,6 +40,57 @@ def _discover_chunks(chunk_dir: str, prefix: str = "train_chunk") -> list[Path]:
     if not chunk_path.exists():
         return []
     return sorted(chunk_path.glob(f"{prefix}_*.parquet"))
+
+
+def generate_latent_chunks(
+    autoencoder: TabularAutoencoder,
+    scaler: TorchStandardScaler,
+    chunk_paths: list[Path],
+    feature_cols: list[str],
+    output_dir: str,
+    device: torch.device,
+    batch_size: int = 512,
+):
+    """
+    Processes each Parquet chunk independently:
+    1. Read chunk -> extract features + target + weeks.
+    2. Scale features via scaler.transform().
+    3. Encode via autoencoder.encode() in batches.
+    4. Save {z, y, weeks} as latent_chunk_XXX.pt.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    autoencoder.eval()
+
+    for i, chunk_path in enumerate(chunk_paths):
+        df = pl.read_parquet(chunk_path)
+        df = prepare_raw_dataframe(df, feature_cols)
+
+        x = torch.tensor(df.select(feature_cols).to_numpy(), dtype=torch.float32)
+        y = torch.tensor(df["target"].to_numpy(), dtype=torch.long)
+        weeks = torch.tensor(df["WEEK_NUM"].to_numpy(), dtype=torch.float32)
+
+        # Scale
+        x_scaled = scaler.transform(x)
+
+        # Encode in batches to avoid GPU OOM
+        z_list = []
+        with torch.no_grad():
+            for j in range(0, len(x_scaled), batch_size):
+                batch = x_scaled[j : j + batch_size].to(device)
+                z = autoencoder.encode(batch)
+                z_list.append(z.cpu())
+
+        z_all = torch.cat(z_list, dim=0)
+
+        # Save
+        out_path = output_dir / f"latent_chunk_{i + 1:03d}.pt"
+        torch.save({"z": z_all, "y": y, "weeks": weeks}, out_path)
+
+        logger.info(f"Saved {out_path} (shape: {z_all.shape})")
+
+    return sorted(output_dir.glob("latent_chunk_*.pt"))
 
 
 def main():
@@ -224,6 +274,41 @@ def _train_chunked(
 
     # 7. Save artifacts
     _save_artifacts(autoencoder, scaler)
+
+    # 8. Generate latent chunks
+    latent_chunk_dir = "data/processed/latent_chunks"
+    logger.info(f"Generating latent chunks in {latent_chunk_dir}...")
+    generate_latent_chunks(
+        autoencoder=autoencoder,
+        scaler=scaler,
+        chunk_paths=chunk_paths,
+        feature_cols=feature_cols,
+        output_dir=latent_chunk_dir,
+        device=device,
+    )
+
+    # 9. Also generate validation latent (small, in-memory)
+    # Reuse legacy logic for single file latent_val.pt
+    val_dataset = CreditRiskDataset(df_val, feature_cols, scaler=scaler, is_train=False)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    Z_list, y_list, weeks_list = [], [], []
+    autoencoder.eval()
+    logger.info("Generating validation latent (in-memory)...")
+    with torch.no_grad():
+        for x, y, weeks in tqdm(val_loader, desc="Mapping Val"):
+            z = autoencoder.encode(x.to(device))
+            Z_list.append(z.cpu())
+            y_list.append(y)
+            weeks_list.append(weeks)
+
+    val_latent = {
+        "z": torch.cat(Z_list, dim=0),
+        "y": torch.cat(y_list, dim=0),
+        "weeks": torch.cat(weeks_list, dim=0),
+    }
+    torch.save(val_latent, "data/processed/latent_val.pt")
+    logger.info(f"Saved latent_val.pt with shape: {val_latent['z'].shape}")
 
 
 def _train_in_memory(
