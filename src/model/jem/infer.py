@@ -105,6 +105,13 @@ def load_inference_pipeline(
     if os.path.exists(scaler_path):
         scaler = TorchStandardScaler.load(scaler_path)
         logger.info(f"Loaded Scaler from {scaler_path}")
+
+        # Task 3.1 - Validate dimensions
+        if input_dim != scaler.num_features:
+            raise ValueError(
+                f"Feature dimension mismatch: got {input_dim} features but scaler expects "
+                f"{scaler.num_features}. Check that you are using the correct feature_cols.json."
+            )
     else:
         scaler = TorchStandardScaler(num_features=input_dim)
         logger.warning(f"Scaler NOT found at {scaler_path}. Using empty scaler.")

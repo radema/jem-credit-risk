@@ -7,7 +7,7 @@ import numpy as np
 from src.data.config import DataPipelineConfig
 from src.data.pipeline import run_pipeline
 from src.model.jem.config import JEMConfig
-from src.model.jem.data_utils import get_inference_dataloader, get_feature_cols
+from src.model.jem.data_utils import get_inference_dataloader, load_feature_cols
 from src.model.jem.infer import load_inference_pipeline, perform_inference
 
 # Configure logging
@@ -73,7 +73,7 @@ def main():
         depth_2_tables=depth_2_tables,
     )
 
-    feature_cols = get_feature_cols(test_df)
+    feature_cols = load_feature_cols(args.artifact_dir)
     logger.info(f"Identified {len(feature_cols)} feature columns for inference.")
 
     # 2. Loading Models (Phase 1)
