@@ -21,9 +21,11 @@ The project moves beyond standard discriminative classification by training a ne
 *   **Hierarchical Latent Space Sampling**: Pre-train an Offline Tabular Autoencoder to map the discrete and sparse tabular features into a dense, continuous latent space $\mathbb{R}^{64}$. The JEM and its SGLD sampler operate safely over this latent continuous manifold to prevent sampling collapse.
 *   **MLOps & Monitoring**: Combine data scalers, the pretrained autoencoder, and the JEM classifier into a cohesive inference wrapper to avoid training-serving skew. Utilize the JEM's energy output to track distribution shifts and visualize temporal decay across the `MONTH` dimension.
 
-### 🏗️ Architecture & Data Flow
+### 🏗️ Architecture & Deployment
 
 For a detailed technical breakdown of the mathematical framework, data engineering pipeline, and SGLD sampling strategy, please refer to the **[ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md)** document.
+
+For instructions on how to package and submit this modular codebase to the Kaggle competition, see the **[KAGGLE_DEPLOYMENT.md](./docs/architecture/KAGGLE_DEPLOYMENT.md)** guide.
 
 
 ### 🛠️ Development Constraints
