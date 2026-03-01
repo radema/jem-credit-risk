@@ -3,6 +3,8 @@ import logging
 import pickle
 from pathlib import Path
 
+import polars as pl
+
 from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
 from src.data.config import DataPipelineConfig
 from src.data.export import (
@@ -69,6 +71,12 @@ def run_pipeline(
         lazy_d2 = scan_table(d2_table, cache_dir)
         filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="inner")
 
+        # Add joined flag
+        table_name_flag = d2_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        filtered_d2 = filtered_d2.with_columns(
+            pl.lit(1).alias(f"{table_name_flag}_joined_flag")
+        )
+
         # Aggregate depth 2 -> depth 1 grain
         agg_d2 = aggregate_depth_2(filtered_d2)
 
@@ -85,6 +93,12 @@ def run_pipeline(
         logger.info(f"Processing Depth-1 Table: {d1_table}")
         lazy_d1 = scan_table(d1_table, cache_dir)
         filtered_d1 = lazy_d1.join(valid_cases_lazy, on="case_id", how="inner")
+
+        # Add joined flag
+        table_name_flag = d1_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        filtered_d1 = filtered_d1.with_columns(
+            pl.lit(1).alias(f"{table_name_flag}_joined_flag")
+        )
 
         # Join corresponding depth-2 tables BEFORE depth-1 aggregation
         if d1_table in d2_aggs_by_parent:
@@ -103,6 +117,13 @@ def run_pipeline(
         logger.info(f"Processing Depth-0 Table: {d0_table}")
         lazy_d0 = scan_table(d0_table, cache_dir)
         filtered_d0 = lazy_d0.join(valid_cases_lazy, on="case_id", how="inner")
+
+        # Add joined flag
+        table_name_flag = d0_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        filtered_d0 = filtered_d0.with_columns(
+            pl.lit(1).alias(f"{table_name_flag}_joined_flag")
+        )
+
         # Depth 0 does not need aggregation, ready for join
         lazy_tables_to_join.append((d0_table, filtered_d0))
 
@@ -118,6 +139,13 @@ def run_pipeline(
         "Evaluating massive Lazy Graph via Streaming Engine. This allows optimal predicate pushdown..."
     )
     final_df = final_lazy.collect(engine="streaming")
+
+    # Post-join: fill joined flags with 0
+    flag_cols = [c for c in final_df.columns if c.endswith("_joined_flag")]
+    if flag_cols:
+        final_df = final_df.with_columns(
+            [pl.col(c).fill_null(0).cast(pl.Int8) for c in flag_cols]
+        )
 
     # 6. Imputation & Categorical Encoding
     artifact_dir = Path(config.artifact_dir)

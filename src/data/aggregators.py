@@ -18,6 +18,12 @@ def _get_agg_expressions(schema, depth: str):
         if col_name in keys:
             continue
 
+        # Handle join flags specifically to avoid renaming/multiple aggs
+        if col_name.endswith("_joined_flag"):
+            # For join flags, just take the max (which is 1) and keep the name
+            aggs.append(pl.col(col_name).max().alias(col_name))
+            continue
+
         is_numeric = dtype in [
             pl.Int8,
             pl.Int16,
@@ -33,18 +39,40 @@ def _get_agg_expressions(schema, depth: str):
         ]
 
         if depth == "depth_2":
+            # For Depth 2, keep it simple to avoid feature name explosion
+            # (e.g. col_max_max) when aggregated again in Depth 1.
             if is_numeric:
                 aggs.append(pl.col(col_name).max().alias(col_name))
             else:
-                # String, Boolean, Categorical, etc
                 aggs.append(pl.col(col_name).last().alias(col_name))
-
-        elif depth == "depth_1":
+        else:
+            # Depth 1: full advanced aggregations
             if is_numeric:
-                aggs.append(pl.col(col_name).mean().alias(f"{col_name}_mean"))
                 aggs.append(pl.col(col_name).max().alias(f"{col_name}_max"))
+                aggs.append(pl.col(col_name).min().alias(f"{col_name}_min"))
+                aggs.append(pl.col(col_name).mean().alias(f"{col_name}_mean"))
+                aggs.append(pl.col(col_name).std().alias(f"{col_name}_std"))
+                iqr = pl.col(col_name).quantile(0.75) - pl.col(col_name).quantile(0.25)
+                aggs.append(iqr.alias(f"{col_name}_iqr"))
             else:
+                # Categorical
                 aggs.append(pl.col(col_name).last().alias(f"{col_name}_last"))
+                aggs.append(pl.col(col_name).first().alias(f"{col_name}_first"))
+
+                mode_expr = pl.col(col_name).mode().last()
+                aggs.append(mode_expr.alias(f"{col_name}_mode"))
+
+                # Counts
+                aggs.append(
+                    pl.col(col_name).filter(pl.col(col_name) == mode_expr).count().alias(f"{col_name}_mode_count")
+                )
+                aggs.append(
+                    pl.col(col_name).filter(pl.col(col_name) == pl.col(col_name).last()).count().alias(f"{col_name}_last_count")
+                )
+                aggs.append(
+                    pl.col(col_name).filter(pl.col(col_name) == pl.col(col_name).first()).count().alias(f"{col_name}_first_count")
+                )
+                aggs.append(pl.col(col_name).mode().count().alias(f"{col_name}_n_modes"))
 
     return aggs
 
@@ -89,8 +117,6 @@ def join_to_base(base_lazy: pl.LazyFrame, dict_of_lazy_dfs: dict) -> pl.LazyFram
     final_df = base_lazy
     for table_name, table_lazy in dict_of_lazy_dfs.items():
         logger.info(f"Joining {table_name} onto base...")
-        # To avoid column collisions across different tables having same named features
-        # we could add suffixes, but the Home Credit dataset usually has globally unique feature names.
         final_df = final_df.join(table_lazy, on="case_id", how="left")
 
     return final_df
