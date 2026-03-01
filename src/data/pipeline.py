@@ -1,6 +1,5 @@
 import argparse
 import logging
-import polars as pl
 from typing import List
 from src.data.config import DataPipelineConfig
 from src.data.unpack import extract_relevant_parquets
