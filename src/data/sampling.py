@@ -1,5 +1,6 @@
-import polars as pl
 import logging
+
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,9 @@ def generate_stratified_sample(
     return sampled_df.select(["case_id"]).lazy()
 
 
-def apply_case_filter(lazy_frame: pl.LazyFrame, valid_cases_df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def apply_case_filter(
+    lazy_frame: pl.LazyFrame, valid_cases_df: pl.DataFrame | pl.LazyFrame
+) -> pl.LazyFrame:
     """
     Filters a LazyFrame to only include rows where the case_id is present in the valid_cases_df.
 

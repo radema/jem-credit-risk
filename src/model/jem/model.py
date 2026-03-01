@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils import spectral_norm
+
 from src.model.jem.config import JEMConfig
 
 

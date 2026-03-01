@@ -28,9 +28,9 @@ Instead of forcing continuous Langevin Dynamics to operate on discrete variables
 
 ### Evolution B: Hierarchical Latent Space Sampling
 Running SGLD in the raw input space of 300+ sparse tabular columns is unstable. We can move the SGLD process to a simpler, strictly continuous latent space.
-* **Mechanism**: 
+* **Mechanism**:
   1. Pre-train a simple tabular Autoencoder (or utilize an embedding layer) mapping the 300+ mixed features to a dense, continuous latent vector $z \in \mathbb{R}^{64}$.
-  2. Implement the JEM classifier *on top of* this latent space $z$. 
+  2. Implement the JEM classifier *on top of* this latent space $z$.
   3. The SGLD sampler will now generate fake samples in the latent space $z_{fake}$, where the manifold is continuous, dense, and naturally bounds Gaussian noise injection.
 * **Benefits**: Instantly solves the categorical constraint problem since the latent space is continuous, leading to much faster MCMC convergence and no "manifold falling".
 
@@ -49,12 +49,12 @@ For immediate stabilization while continuing Phase 1/2 of the project, **Evoluti
 
 ### Evolution D: Multi-Modal / Multi-Tower Architecture
 Instead of relying on Polars to arbitrarily flatten sequential data (depth=1, depth=2) through mean/max aggregations, the JEM can natively model the temporal structures by processing raw sequential data through dedicated neural towers.
-* **Mechanism**: 
+* **Mechanism**:
   1. **Data Pipeline**: The DataLoader is rewritten to output structured dictionaries per batch, e.g., `{'static': tensor(batch, static_dim), 'history_d1': tensor(batch, seq_len, d1_dim)}`.
   2. **Static Tower**: Depth=0 tabular features pass through a standard MLP with Spectral Normalization, generating an embedding $H_0$.
   3. **Sequence Tower**: Depth=1 historical features are padded and passed through a powerful sequential encoder (1D-CNN, GRU, or Transformer). Output is pooled (e.g., Attention Pooling) to yield embedding $H_1$.
   4. **Fusion & JEM Head**: The representations are concatenated $[H_0, H_1]$ and passed through final Linear layers to generate the unnormalized logits used for both $P(y|x)$ (Softmax) and $E(x)$ (LogSumExp).
-* **Impact on SGLD**: 
+* **Impact on SGLD**:
   - To generate samples, the MCMC runs on the concatenated raw feature space (difficult, as you must define noise for varying sequence lengths) OR
   - **Crucially**, the SGLD runs *only on the concatenated latent embeddings* $[H_0, H_1]$, bringing us back to the benefits of Evolution B, but with vastly richer temporal representations.
 * **Trade-offs**:

@@ -1,5 +1,5 @@
-import polars as pl
 import numpy as np
+import polars as pl
 
 df = pl.DataFrame(
     {

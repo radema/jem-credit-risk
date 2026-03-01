@@ -1,9 +1,10 @@
 import polars as pl
-from src.data.config import DataPipelineConfig
-from src.data.unpack import extract_relevant_parquets
-from src.data.loader import scan_table
-from src.data.sampling import generate_stratified_sample, apply_case_filter
+
 from src.data.aggregators import aggregate_depth_1, join_to_base
+from src.data.config import DataPipelineConfig
+from src.data.loader import scan_table
+from src.data.sampling import apply_case_filter, generate_stratified_sample
+from src.data.unpack import extract_relevant_parquets
 
 
 def test_milestone_3():
@@ -12,9 +13,11 @@ def test_milestone_3():
     logging.basicConfig(level=logging.INFO)
 
     import os
+
     zip_path = "data/raw/home-credit-credit-risk-model-stability.zip"
     if not os.path.exists(zip_path):
         import pytest
+
         pytest.skip(f"Skipping test, file {zip_path} not found.")
 
     cache_dir = ".cache_test"

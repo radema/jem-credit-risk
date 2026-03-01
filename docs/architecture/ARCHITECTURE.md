@@ -14,10 +14,10 @@ graph TD
     subgraph Joint Energy-Based Model
         F -->|Batch x_real| G[MLP: f_theta]
         G --> H[Logits: Class 0, Class 1]
-        
+
         H --> I{Softmax}
         I --> J[Cross-Entropy Loss]
-        
+
         H --> K{Negative LogSumExp}
         K --> L[Real Energy: E_real]
     end
@@ -38,5 +38,3 @@ graph TD
         Q -->|Gradient Descent| G
     end
 ```
-
-

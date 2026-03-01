@@ -1,13 +1,14 @@
 import logging
+
 import numpy as np
 import polars as pl
 import torch
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
+from src.model.jem.loss import JEMLoss
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
-from src.model.jem.loss import JEMLoss
 from src.model.jem.scaler import TorchStandardScaler
 
 logger = logging.getLogger(__name__)
@@ -161,7 +162,7 @@ def train_jem_epoch(
     total_loss, clf_loss, gen_loss, l2_loss = 0.0, 0.0, 0.0, 0.0
     all_targets, all_preds, all_weeks = [], [], []
 
-    for batch_idx, (x_real, y_real, weeks) in enumerate(loader):
+    for _batch_idx, (x_real, y_real, weeks) in enumerate(loader):
         x_real = x_real.to(device)
         y_real = y_real.to(device)
 

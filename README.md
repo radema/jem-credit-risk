@@ -65,7 +65,7 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 ├── data/
 │   ├── raw/                 # Kaggle parquet files and csv dictionaries
 │   └── processed/           # Processed torch tensors will be saved here
-├── docs/                    
+├── docs/
 │   ├── architecture/        # ARCHITECTURE.md and THEORY.md
 │   ├── data/                # data_dictionary.md
 │   └── planning/            # ROADMAP.md
@@ -83,10 +83,26 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 Install Dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv sync --group dev
 ```
 
 (Ensure you have polars, torch, scikit-learn, numpy, and matplotlib installed).
+
+### Code Quality & Development
+
+To ensure high code quality, this project uses `ruff` for linting and formatting, and `pre-commit` for automated checks.
+
+**Install pre-commit hooks:**
+
+```bash
+uv run pre-commit install
+```
+
+**Run hooks manually on all files:**
+
+```bash
+uv run pre-commit run --all-files
+```
 
 ## Data Preparation
 
@@ -104,7 +120,7 @@ The codebase is split into three core modules. This separation of concerns ensur
 
 ## Development Workflow
 
-Step 1: Run src/data.py to ingest the relational tables, aggregate features using Polars, and export scaled tensors. 
+Step 1: Run src/data.py to ingest the relational tables, aggregate features using Polars, and export scaled tensors.
 
 Step 2: Run src/jem.py as a standalone script to execute unit tests verifying the SGLD backward passes.
 

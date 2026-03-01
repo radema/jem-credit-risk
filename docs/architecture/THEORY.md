@@ -27,20 +27,20 @@ To train the EBM component of JEM, generating fake samples ($x_{fake}$) is cruci
 graph TD
     A[Real Input] -->|Forward| B[Classifier]
     L[Fake Input from SGLD] -->|Forward| B
-    
+
     B --> C{Logits}
-    
+
     C -->|Discriminative Task| D[Softmax / Cross-Entropy]
     C -->|Generative Task| E[LogSumExp Trick]
-    
+
     D --> F[Classification Loss]
     E --> G[Energy E_x]
-    
+
     G --> H[EBM Loss: Contrast Real vs Fake]
-    
+
     F --> I((Joint JEM Loss))
     H --> I
-    
+
     J[(Replay Buffer)] -->|Initializes| K[SGLD Loop]
     K -->|Calculates gradient of E_x wrt x| E
     K -->|Updates memory| J

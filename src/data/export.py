@@ -1,6 +1,7 @@
-import os
-import polars as pl
 import logging
+import os
+
+import polars as pl
 
 logger = logging.getLogger(__name__)
 

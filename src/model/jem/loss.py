@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from src.model.jem.config import JEMConfig
 
 
