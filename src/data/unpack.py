@@ -1,8 +1,7 @@
 import logging
 import os
-import zipfile
-import logging
 import shutil
+import zipfile
 
 logger = logging.getLogger(__name__)
 

@@ -72,7 +72,9 @@ def run_pipeline(
         filtered_d2 = lazy_d2.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Add joined flag
-        table_name_flag = d2_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        table_name_flag = (
+            d2_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        )
         filtered_d2 = filtered_d2.with_columns(
             pl.lit(1).alias(f"{table_name_flag}_joined_flag")
         )
@@ -95,7 +97,9 @@ def run_pipeline(
         filtered_d1 = lazy_d1.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Add joined flag
-        table_name_flag = d1_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        table_name_flag = (
+            d1_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        )
         filtered_d1 = filtered_d1.with_columns(
             pl.lit(1).alias(f"{table_name_flag}_joined_flag")
         )
@@ -119,7 +123,9 @@ def run_pipeline(
         filtered_d0 = lazy_d0.join(valid_cases_lazy, on="case_id", how="inner")
 
         # Add joined flag
-        table_name_flag = d0_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        table_name_flag = (
+            d0_table.replace("train_", "").replace("test_", "").replace(".parquet", "")
+        )
         filtered_d0 = filtered_d0.with_columns(
             pl.lit(1).alias(f"{table_name_flag}_joined_flag")
         )

@@ -3,10 +3,11 @@ import logging
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+
+from src.model.jem.data_utils import calculate_gini_stability
+from src.model.jem.loss import JEMLoss
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
-from src.model.jem.loss import JEMLoss
-from src.model.jem.data_utils import calculate_gini_stability
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,9 @@ def train_jem_epoch(
     total_loss, clf_loss, gen_loss, l2_loss = 0.0, 0.0, 0.0, 0.0
     all_targets, all_preds, all_weeks = [], [], []
 
-    for batch_idx, batch in enumerate(loader):
+    num_batches = 0
+    for _batch_idx, batch in enumerate(loader):
+        num_batches += 1
         if len(batch) == 4:
             x_real, y_real, weeks, sample_weight = batch
         else:
@@ -72,7 +75,7 @@ def train_jem_epoch(
         all_preds.append(probs.cpu().numpy())
         all_weeks.append(weeks.numpy())
 
-    num_batches = batch_idx + 1  # Works with both map-style and iterable loaders
+    # num_batches is now tracked via counter
     all_targets = np.concatenate(all_targets)
     all_preds = np.concatenate(all_preds)
     all_weeks = np.concatenate(all_weeks)

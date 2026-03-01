@@ -1,16 +1,17 @@
+import logging
 import os
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-import logging
-import numpy as np
-from pathlib import Path
+
 from src.model.jem.config import JEMConfig
-from src.model.jem.model import TabularJEM, LatentJEMWrapper
-from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
+from src.model.jem.data_utils import ChunkedLatentDataset, get_latent_dataloaders
 from src.model.jem.loss import JEMLoss
-from src.model.jem.train import train_jem_epoch, evaluate_jem
-from src.model.jem.data_utils import get_latent_dataloaders, ChunkedLatentDataset
+from src.model.jem.model import LatentJEMWrapper, TabularJEM
+from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
 from src.model.jem.scaler import TorchStandardScaler
+from src.model.jem.train import evaluate_jem, train_jem_epoch
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

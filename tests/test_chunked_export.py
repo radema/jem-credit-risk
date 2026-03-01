@@ -1,6 +1,5 @@
 import polars as pl
-import pytest
-from pathlib import Path
+
 from src.data.export import export_to_chunked_parquet
 
 

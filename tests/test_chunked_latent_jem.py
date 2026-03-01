@@ -7,17 +7,18 @@ Verifies:
 - A 2-epoch JEM training loop using SGLD buffer runs end-to-end.
 """
 
-import torch
+from pathlib import Path
+
 import numpy as np
 import pytest
-from pathlib import Path
+import torch
 from torch.utils.data import DataLoader
 
-from src.model.jem.data_utils import ChunkedLatentDataset
 from src.model.jem.config import JEMConfig
+from src.model.jem.data_utils import ChunkedLatentDataset
+from src.model.jem.loss import JEMLoss
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
-from src.model.jem.loss import JEMLoss
 from src.model.jem.train import train_jem_epoch
 
 
@@ -69,7 +70,7 @@ class TestChunkedLatentDataset:
         rows = list(dataset)
         # Normalized weights: n / (n_classes * class_count)
         # n=50, n_classes=2, class_0=40, class_1=10
-        for z, y, week, weight in rows:
+        for _z, y, _week, weight in rows:
             if y == 0:
                 assert pytest.approx(weight.item()) == 50.0 / (2 * 40)  # = 0.625
             else:
@@ -138,7 +139,7 @@ class TestJEMTrainingLoopWithChunkedLatent:
 
         # Training must run without error and produce finite loss
         assert len(losses) == 2
-        assert all(np.isfinite(l) for l in losses)
+        assert all(np.isfinite(loss_val) for loss_val in losses)
 
         # SGLD buffer should have been populated
         assert buffer.buffer.shape[0] > 0

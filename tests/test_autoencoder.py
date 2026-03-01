@@ -1,5 +1,6 @@
 import torch
-from src.model.autoencoder.model import TabularAutoencoder, AutoencoderLoss
+
+from src.model.autoencoder.model import AutoencoderLoss, TabularAutoencoder
 
 
 def test_tabular_autoencoder_initialization():

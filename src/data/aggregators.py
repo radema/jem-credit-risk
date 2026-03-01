@@ -64,15 +64,26 @@ def _get_agg_expressions(schema, depth: str):
 
                 # Counts
                 aggs.append(
-                    pl.col(col_name).filter(pl.col(col_name) == mode_expr).count().alias(f"{col_name}_mode_count")
+                    pl.col(col_name)
+                    .filter(pl.col(col_name) == mode_expr)
+                    .count()
+                    .alias(f"{col_name}_mode_count")
                 )
                 aggs.append(
-                    pl.col(col_name).filter(pl.col(col_name) == pl.col(col_name).last()).count().alias(f"{col_name}_last_count")
+                    pl.col(col_name)
+                    .filter(pl.col(col_name) == pl.col(col_name).last())
+                    .count()
+                    .alias(f"{col_name}_last_count")
                 )
                 aggs.append(
-                    pl.col(col_name).filter(pl.col(col_name) == pl.col(col_name).first()).count().alias(f"{col_name}_first_count")
+                    pl.col(col_name)
+                    .filter(pl.col(col_name) == pl.col(col_name).first())
+                    .count()
+                    .alias(f"{col_name}_first_count")
                 )
-                aggs.append(pl.col(col_name).mode().count().alias(f"{col_name}_n_modes"))
+                aggs.append(
+                    pl.col(col_name).mode().count().alias(f"{col_name}_n_modes")
+                )
 
     return aggs
 

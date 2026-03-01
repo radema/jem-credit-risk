@@ -1,5 +1,6 @@
-import torch
 import pytest
+import torch
+
 from src.model.jem.scaler import TorchStandardScaler
 
 
@@ -9,12 +10,9 @@ def test_fit_updates_buffers():
     scaler = TorchStandardScaler(num_features=num_features)
 
     # Input data: 4 samples, 3 features
-    x = torch.tensor([
-        [1.0, 2.0, 3.0],
-        [4.0, 5.0, 6.0],
-        [7.0, 8.0, 9.0],
-        [10.0, 11.0, 12.0]
-    ])
+    x = torch.tensor(
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0], [10.0, 11.0, 12.0]]
+    )
 
     # Expected mean and variance (unbiased)
     # mean: [5.5, 6.5, 7.5]
@@ -77,27 +75,23 @@ def test_transform_scaling():
     scaler = TorchStandardScaler(num_features=num_features)
 
     # Data with mean=[2, 10] and std=[1, 5] (var=[1, 25])
-    x_train = torch.tensor([
-        [1.0, 5.0],
-        [3.0, 15.0]
-    ])
+    x_train = torch.tensor([[1.0, 5.0], [3.0, 15.0]])
 
     # Mean: [2.0, 10.0]
     # Var: [((1-2)^2 + (3-2)^2)/1, ((5-10)^2 + (15-10)^2)/1] = [2.0, 50.0]
 
     scaler.fit(x_train)
 
-    x_test = torch.tensor([
-        [2.0, 10.0], # Should become [0, 0]
-        [2.0 + (2.0**0.5), 10.0 + (50.0**0.5)] # Should become [1, 1]
-    ])
+    x_test = torch.tensor(
+        [
+            [2.0, 10.0],  # Should become [0, 0]
+            [2.0 + (2.0**0.5), 10.0 + (50.0**0.5)],  # Should become [1, 1]
+        ]
+    )
 
     x_scaled = scaler.transform(x_test)
 
-    expected_scaled = torch.tensor([
-        [0.0, 0.0],
-        [1.0, 1.0]
-    ])
+    expected_scaled = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
 
     assert torch.allclose(x_scaled, expected_scaled)
 
@@ -109,10 +103,7 @@ def test_transform_zero_variance():
     scaler = TorchStandardScaler(num_features=num_features, eps=eps)
 
     # Feature 0 is constant
-    x = torch.tensor([
-        [10.0, 1.0],
-        [10.0, 3.0]
-    ])
+    x = torch.tensor([[10.0, 1.0], [10.0, 3.0]])
 
     scaler.fit(x)
     assert scaler.var[0] < eps
