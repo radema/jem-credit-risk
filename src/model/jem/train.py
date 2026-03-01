@@ -226,7 +226,7 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
 
             logits = model(x_real)
             probs = torch.softmax(logits, dim=1)[:, 1]
-            energies = model.compute_energy(x_real)
+            energies = -torch.logsumexp(logits, dim=1)
 
             all_targets.append(y_real.numpy())
             all_preds.append(probs.cpu().numpy())
