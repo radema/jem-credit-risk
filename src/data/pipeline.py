@@ -1,22 +1,19 @@
 import argparse
 import logging
-import polars as pl
 import pickle
 from pathlib import Path
-from typing import List
 
+from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
 from src.data.config import DataPipelineConfig
-from src.data.export import evaluate_eda_stats, export_to_parquet
+from src.data.export import (
+    evaluate_eda_stats,
+    export_to_chunked_parquet,
+    export_to_parquet,
+)
 from src.data.imputation import handle_missing_and_categoricals
 from src.data.loader import scan_table
 from src.data.sampling import generate_stratified_sample
-from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
-from src.data.imputation import handle_missing_and_categoricals
-from src.data.export import (
-    evaluate_eda_stats,
-    export_to_parquet,
-    export_to_chunked_parquet,
-)
+from src.data.unpack import extract_relevant_parquets
 
 logger = logging.getLogger(__name__)
 

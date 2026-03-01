@@ -1,12 +1,13 @@
-import torch
-import polars as pl
 import numpy as np
+import polars as pl
+import torch
+
+from src.model.autoencoder.model import TabularAutoencoder
+from src.model.jem.config import JEMConfig
 from src.model.jem.data_utils import get_inference_dataloader
 from src.model.jem.infer import perform_inference
 from src.model.jem.model import TabularJEM
-from src.model.autoencoder.model import TabularAutoencoder
 from src.model.jem.scaler import TorchStandardScaler
-from src.model.jem.config import JEMConfig
 
 
 def test_inference_loop_consistency():
@@ -40,7 +41,7 @@ def test_inference_loop_consistency():
 
     # 4. Run Inference
     device = torch.device("cpu")
-    case_ids, probs = perform_inference(
+    case_ids, probs, _ = perform_inference(
         scaler=scaler, autoencoder=ae, jem=jem, loader=loader, device=device
     )
 

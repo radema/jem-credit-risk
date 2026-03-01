@@ -142,7 +142,7 @@ def handle_missing_and_categoricals(
             vc = df[col].value_counts()
             c1, c2 = vc.columns[0], vc.columns[1]
             # Convert to dictionary (mapping string to count)
-            freq_map = dict(zip(vc[c1].to_list(), vc[c2].to_list()))
+            freq_map = dict(zip(vc[c1].to_list(), vc[c2].to_list(), strict=False))
             state["freqs"][col] = freq_map
 
     freq_exprs = []
@@ -161,7 +161,7 @@ def handle_missing_and_categoricals(
         df = df.with_columns(freq_exprs)
 
     if is_fitting:
-        state["final_columns"] = df.columns
+        state["final_columns"] = [c for c in df.columns if c != "target"]
     else:
         # Schema Alignment: Ensure all columns from training are present
         train_cols = state.get("final_columns", [])
