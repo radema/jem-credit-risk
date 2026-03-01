@@ -1,6 +1,7 @@
 import os
 import zipfile
 import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def extract_relevant_parquets(zip_path: str, cache_dir: str = ".cache") -> str:
                 # archive.extract keeps directory structure, so we read directly and write
                 logger.debug(f"Extracting {file} to {target_path}")
                 with archive.open(file) as source, open(target_path, "wb") as target:
-                    target.write(source.read())
+                    shutil.copyfileobj(source, target)
                 extracted_count += 1
 
     logger.info(f"Successfully extracted {extracted_count} matching files.")
