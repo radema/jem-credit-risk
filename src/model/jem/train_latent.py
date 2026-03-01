@@ -11,6 +11,7 @@ from src.model.jem.loss import JEMLoss
 from src.model.jem.train import train_jem_epoch, evaluate_jem
 from src.model.jem.data_utils import get_latent_dataloaders, ChunkedLatentDataset
 from src.model.jem.scaler import TorchStandardScaler
+from src.utils.callbacks import EarlyStopping
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +79,7 @@ def main():
     sampler = SGLDSampler(config=config)
     criterion = JEMLoss(config=config)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+    early_stopping = EarlyStopping(patience=5, mode="max")
 
     # 4. Training Loop
     epochs = 10  # Quick run for verification
@@ -93,6 +95,13 @@ def main():
         logger.info(
             f"Epoch [{epoch:02d}/{epochs}] | Loss: {train_logs['loss']:.4f} | Validation Stability: {stability:.4f}"
         )
+
+        if early_stopping(stability, model):
+            logger.info(f"Early stopping triggered at epoch {epoch}")
+            break
+
+    # Restore best weights
+    early_stopping.restore_best_weights(model)
 
     # 5. Packaging (Integrate with Encoder and Scaler)
     logger.info("Packaging model into LatentJEMWrapper...")

@@ -52,6 +52,8 @@ graph TD;
     DataLoader --> Model
     Model --> LossFn
     LossFn -->|Backpropagation| Model
+    Model -->|Evaluate| EarlyStop[Early Stopping]
+    EarlyStop -->|Trigger| Model
 
     Model -->|Freeze Encoding Weights| LatentChunked
     ScaleFitChunk --> LatentChunked
@@ -119,6 +121,13 @@ After the autoencoder reconstructs raw features adequately via `weighted_mse_los
 4. It concatenates the resulting Latent representations (`z`), targets (`y`), and chronological dimensions (`weeks`) into independent `.pt` torch tensors on disk (`data/processed/latent/`).
 
 These smaller tensor chunks act as the high-density input required for the JEM step without overwhelming VRAM.
+
+## Early Stopping Mechanism
+To prevent overfitting and optimize training time, the pipeline incorporates an `EarlyStopping` callback.
+- **Monitored Metric:** `avg_val_loss` (MSE).
+- **Mode:** `min` (stops when loss stops decreasing).
+- **Patience:** 5 epochs.
+- **Weight Restoration:** Upon triggering (or completion), the model automatically restores the `state_dict` from the epoch that achieved the lowest validation loss.
 
 ---
 
