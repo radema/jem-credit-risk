@@ -188,12 +188,12 @@ def train_jem_epoch(
         l2_loss += loss_dict["l2_loss"].item()
 
         # For AUC/Gini tracking:
-        with torch.no_grad():
-            logits = model(x_real)
-            probs = torch.softmax(logits, dim=1)[:, 1]  # Probability of Class 1
-            all_targets.append(y_real.cpu().numpy())
-            all_preds.append(probs.cpu().numpy())
-            all_weeks.append(weeks.numpy())
+        # Optimization: use logits_real from loss_dict to avoid redundant forward pass
+        logits = loss_dict["logits_real"].detach()
+        probs = torch.softmax(logits, dim=1)[:, 1]  # Probability of Class 1
+        all_targets.append(y_real.cpu().numpy())
+        all_preds.append(probs.cpu().numpy())
+        all_weeks.append(weeks.numpy())
 
     num_batches = len(loader)
     all_targets = np.concatenate(all_targets)
@@ -226,7 +226,8 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
 
             logits = model(x_real)
             probs = torch.softmax(logits, dim=1)[:, 1]
-            energies = model.compute_energy(x_real)
+            # Optimization: compute energy from logits to avoid redundant forward pass
+            energies = -torch.logsumexp(logits, dim=1)
 
             all_targets.append(y_real.numpy())
             all_preds.append(probs.cpu().numpy())
