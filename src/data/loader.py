@@ -18,10 +18,10 @@ def scan_table(table_base_name: str, cache_dir: str) -> pl.LazyFrame:
     Returns:
         A pl.LazyFrame encompassing all matching parts of the table.
     """
-    glob_match = os.path.join(cache_dir, f"{table_base_name}*.parquet")
+    glob_match = os.path.join(cache_dir, "**", f"{table_base_name}*.parquet")
     logger.info(f"Scanning table with wildcard globbing: {glob_match}")
 
-    files = glob.glob(glob_match)
+    files = glob.glob(glob_match, recursive=True)
     if not files:
         # Fallback to normal behavior if no files found (let scan_parquet fail clearly)
         return pl.scan_parquet(glob_match)
