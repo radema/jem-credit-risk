@@ -9,7 +9,12 @@ def test_milestone_2():
 
     logging.basicConfig(level=logging.INFO)
 
+    import os
     zip_path = "data/raw/home-credit-credit-risk-model-stability.zip"
+    if not os.path.exists(zip_path):
+        import pytest
+        pytest.skip(f"Skipping test, file {zip_path} not found.")
+
     cache_dir = ".cache_test"
 
     config = DataPipelineConfig(
