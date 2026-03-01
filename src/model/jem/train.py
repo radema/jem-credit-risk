@@ -191,13 +191,13 @@ def train_jem_epoch(
         with torch.no_grad():
             logits = model(x_real)
             probs = torch.softmax(logits, dim=1)[:, 1]  # Probability of Class 1
-            all_targets.append(y_real.cpu().numpy())
-            all_preds.append(probs.cpu().numpy())
-            all_weeks.append(weeks.numpy())
+            all_targets.append(y_real)
+            all_preds.append(probs)
+            all_weeks.append(weeks)
 
     num_batches = len(loader)
-    all_targets = np.concatenate(all_targets)
-    all_preds = np.concatenate(all_preds)
+    all_targets = torch.cat(all_targets).cpu().numpy()
+    all_preds = torch.cat(all_preds).cpu().numpy()
     all_weeks = np.concatenate(all_weeks)
 
     stability_metrics = calculate_gini_stability(all_targets, all_preds, all_weeks)
@@ -228,15 +228,15 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
             probs = torch.softmax(logits, dim=1)[:, 1]
             energies = model.compute_energy(x_real)
 
-            all_targets.append(y_real.numpy())
-            all_preds.append(probs.cpu().numpy())
-            all_weeks.append(weeks.numpy())
-            all_energies.append(energies.cpu().numpy())
+            all_targets.append(y_real)
+            all_preds.append(probs)
+            all_weeks.append(weeks)
+            all_energies.append(energies)
 
-    all_targets = np.concatenate(all_targets)
-    all_preds = np.concatenate(all_preds)
+    all_targets = torch.cat(all_targets).cpu().numpy()
+    all_preds = torch.cat(all_preds).cpu().numpy()
     all_weeks = np.concatenate(all_weeks)
-    all_energies = np.concatenate(all_energies)
+    all_energies = torch.cat(all_energies).cpu().numpy()
 
     stability_metrics = calculate_gini_stability(all_targets, all_preds, all_weeks)
 
