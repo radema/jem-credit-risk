@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import polars as pl
 import torch
 import torch.nn as nn
 
@@ -60,6 +63,65 @@ class TorchStandardScaler(nn.Module):
 
         return self
 
+    def streaming_fit(
+        self,
+        chunk_paths: list[Path],
+        feature_cols: list[str],
+    ) -> "TorchStandardScaler":
+        """
+        Computes global mean and variance using Welford's parallel/batch
+        online algorithm by iterating through Parquet chunk files.
+
+        Uses FP64 accumulators internally, casts to FP32 at the end.
+        Memory: O(num_features), independent of total dataset size.
+
+        Args:
+            chunk_paths: Ordered list of Parquet file paths to process.
+            feature_cols: Column names to select from each Parquet file.
+
+        Returns:
+            self
+        """
+        if not chunk_paths:
+            raise ValueError("chunk_paths must be a non-empty list of Parquet paths.")
+
+        # --- FP64 accumulators for numerical stability ---
+        running_mean = torch.zeros(self.num_features, dtype=torch.float64)
+        running_m2 = torch.zeros(self.num_features, dtype=torch.float64)
+        total_count: int = 0
+
+        for path in chunk_paths:
+            # Read chunk: Parquet → Polars → NumPy → FP64 Tensor
+            chunk_np = pl.read_parquet(path).select(feature_cols).to_numpy()
+            chunk_t = torch.from_numpy(chunk_np).to(torch.float64)
+            n = chunk_t.shape[0]
+
+            if n == 0:
+                continue
+
+            # Chunk-level statistics (FP64)
+            chunk_mean = chunk_t.mean(dim=0)
+            chunk_m2 = ((chunk_t - chunk_mean) ** 2).sum(dim=0)
+
+            # Welford's parallel combine
+            combined_count = total_count + n
+            delta = chunk_mean - running_mean
+
+            running_mean = running_mean + delta * (n / combined_count)
+            running_m2 = (
+                running_m2 + chunk_m2 + (delta**2) * (total_count * n / combined_count)
+            )
+            total_count = combined_count
+
+        # Unbiased sample variance, then cast to FP32
+        variance = running_m2 / (total_count - 1) if total_count > 1 else running_m2
+
+        self.mean.copy_(running_mean.float())
+        self.var.copy_(variance.float())
+        self.is_fitted.copy_(torch.tensor(True))
+
+        return self
+
     def transform(self, x: torch.Tensor) -> torch.Tensor:
         """
         Scales the input tensor using the fitted mean and variance.
@@ -79,7 +141,34 @@ class TorchStandardScaler(nn.Module):
         var_safe = torch.where(self.var < self.eps, 1.0, self.var)
         std = torch.sqrt(var_safe)
 
-        return (x - self.mean) / std
+        return torch.clamp((x - self.mean) / std, -10.0, 10.0)
+
+    def save(self, path: str):
+        """Saves the scaler state to a file."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "num_features": self.num_features,
+                "eps": self.eps,
+                "state_dict": self.state_dict(),
+            },
+            path,
+        )
+
+    @classmethod
+    def load(cls, path: str) -> "TorchStandardScaler":
+        """Loads the scaler state from a file."""
+        state = torch.load(path, map_location="cpu", weights_only=True)
+        if "num_features" in state:
+            scaler = cls(num_features=state["num_features"], eps=state.get("eps", 1e-8))
+            scaler.load_state_dict(state["state_dict"])
+        else:
+            # It's just a raw state_dict
+            num_features = state["mean"].shape[0]
+            scaler = cls(num_features=num_features)
+            scaler.load_state_dict(state)
+        return scaler
 
     def fit_transform(self, x: torch.Tensor) -> torch.Tensor:
         """

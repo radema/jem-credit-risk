@@ -45,3 +45,17 @@ This document outlines the phased, engineering-focused approach to implementing 
 **Action 2:** GPU Training. Execute the training loop on the full dataset, utilizing the GPU purely for the heavy lifting of the model training (Polars will handle the CPU-bound data prep efficiently).
 
 **Action 3:** OOD Verification. Evaluate model stability over time. Plot the average batch energy $E(x)$ over the MONTH column. If the data distribution shifts significantly in later months (a core challenge of this competition), the scalar energy should spike, successfully flagging the OOD data.
+
+## Phase 5: Chunked Training Pipeline ✅
+
+**Goal:** Eliminate OOM errors during training by converting the entire training data path to memory-bounded streaming.
+
+**Action 1:** Chunked Data Export. Modify `pipeline.py` to write numbered Parquet partitions (`train_chunk_001.parquet`, ...) via `export_to_chunked_parquet()`. Configurable `chunk_size` (default 200k rows).
+
+**Action 2:** Streaming Scaler & IterableDatasets. Implement `TorchStandardScaler.streaming_fit()` using Welford's online algorithm (FP64 accumulators). Build `ChunkedParquetDataset` and `ChunkedLatentDataset` with shuffle buffers and chunk-level class weighting.
+
+**Action 3:** Pipeline Integration. Refactor `train_autoencoder.py` and `train_latent.py` to auto-detect and consume chunked data while preserving the in-memory fallback path.
+
+**Action 4:** End-to-End Validation. Integration test verifying chunk creation → AE training → latent generation → JEM training with reproducibility checks.
+
+**Output:** Memory-bounded training pipeline capable of handling the full 1.5M row dataset within Kaggle's 30GB RAM constraint. Bolt completed 2026-02-28.

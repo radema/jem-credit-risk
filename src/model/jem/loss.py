@@ -31,6 +31,7 @@ class JEMLoss(nn.Module):
         x_real: torch.Tensor,
         y_real: torch.Tensor,
         x_fake: torch.Tensor,
+        sample_weight: torch.Tensor = None,
     ) -> dict:
         """
         Computes the joint loss components.
@@ -40,18 +41,29 @@ class JEMLoss(nn.Module):
             x_real (torch.Tensor): Real data samples.
             y_real (torch.Tensor): Labels for real data.
             x_fake (torch.Tensor): Generated fake samples from SGLD.
+            sample_weight (torch.Tensor, optional): Per-sample weights.
 
         Returns:
             dict: Dictionary containing the total loss and its components.
         """
         # 1. Discriminative Loss: Predict the correct class
         logits_real = model(x_real)
-        clf_loss = self.ce_loss(logits_real, y_real)
+
+        if sample_weight is not None:
+            # Weighted cross-entropy
+            import torch.nn.functional as F
+
+            clf_loss = F.cross_entropy(logits_real, y_real, reduction="none")
+            clf_loss = (clf_loss * sample_weight.to(clf_loss.device)).mean()
+        else:
+            clf_loss = self.ce_loss(logits_real, y_real)
 
         # 2. Generative Loss (Contrastive Divergence)
         # We want p(x_real) to be high (low energy) and p(x_fake) to be low (high energy)
         # L_gen = E(x_real) - E(x_fake)
-        e_real = model.compute_energy(x_real)
+
+        # Optimization: compute e_real from logits_real to avoid redundant forward pass
+        e_real = -torch.logsumexp(logits_real, dim=1)
         e_fake = model.compute_energy(x_fake)
 
         gen_loss = e_real.mean() - e_fake.mean()
@@ -70,4 +82,5 @@ class JEMLoss(nn.Module):
             "l2_loss": l2_loss,
             "e_real": e_real.mean(),
             "e_fake": e_fake.mean(),
+            "logits_real": logits_real,
         }
