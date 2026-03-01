@@ -1,12 +1,11 @@
 import os
-import sys
+
+from src.data.config import DataPipelineConfig
+from src.data.pipeline import run_pipeline
+from src.model.jem.data_utils import get_dataloaders, split_data_chronologically
 
 # Change working directory so relative paths work from project root
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-from src.data.pipeline import run_pipeline
-from src.data.config import DataPipelineConfig
-from src.model.jem.data_utils import split_data_chronologically, get_dataloaders
 
 
 def main():

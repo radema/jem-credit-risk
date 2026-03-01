@@ -1,12 +1,14 @@
 import torch
 import torch.nn as nn
-import pytest
+
 from src.utils.callbacks import EarlyStopping
+
 
 class MockModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.param = nn.Parameter(torch.ones(1))
+
 
 def test_early_stopping_min():
     model = MockModel()
@@ -41,6 +43,7 @@ def test_early_stopping_min():
     assert early_stopping(7.3, model) is True
     assert early_stopping.early_stop is True
 
+
 def test_early_stopping_max():
     model = MockModel()
     early_stopping = EarlyStopping(patience=2, mode="max")
@@ -61,6 +64,7 @@ def test_early_stopping_max():
     # 4. Trigger
     assert early_stopping(0.4, model) is True
 
+
 def test_restore_best_weights():
     model = MockModel()
     early_stopping = EarlyStopping(patience=2, mode="min")
@@ -76,6 +80,7 @@ def test_restore_best_weights():
     # Restore
     early_stopping.restore_best_weights(model)
     assert model.param.item() == 1.0
+
 
 def test_min_delta():
     model = MockModel()

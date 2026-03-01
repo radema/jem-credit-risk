@@ -1,24 +1,26 @@
-import os
 import json
 import logging
+import os
+from pathlib import Path
+
+import polars as pl
 import torch
 import torch.optim as optim
-import polars as pl
-from pathlib import Path
-from tqdm import tqdm
 from torch.utils.data import DataLoader
-from src.data.pipeline import run_pipeline
+from tqdm import tqdm
+
 from src.data.config import DataPipelineConfig
+from src.data.pipeline import run_pipeline
+from src.model.autoencoder.model import AutoencoderLoss, TabularAutoencoder
 from src.model.jem.data_utils import (
-    split_data_chronologically,
+    ChunkedParquetDataset,
+    CreditRiskDataset,
     get_dataloaders,
     get_feature_cols,
     prepare_raw_dataframe,
-    CreditRiskDataset,
-    ChunkedParquetDataset,
+    split_data_chronologically,
 )
 from src.model.jem.scaler import TorchStandardScaler
-from src.model.autoencoder.model import TabularAutoencoder, AutoencoderLoss
 from src.utils.callbacks import EarlyStopping
 
 logging.basicConfig(
@@ -357,7 +359,7 @@ def _train_in_memory(
         autoencoder.train()
         total_loss = 0.0
 
-        for batch_idx, (x_real, _, _) in enumerate(train_loader):
+        for _batch_idx, (x_real, _, _) in enumerate(train_loader):
             x_real = x_real.to(device)
             optimizer.zero_grad()
 

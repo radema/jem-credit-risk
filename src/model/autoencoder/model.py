@@ -10,7 +10,7 @@ class TabularAutoencoder(nn.Module):
     """
 
     def __init__(self, input_dim: int, latent_dim: int = 64):
-        super(TabularAutoencoder, self).__init__()
+        super().__init__()
 
         self.encoder = nn.Sequential(
             spectral_norm(nn.Linear(input_dim, 256)),
@@ -55,7 +55,7 @@ class AutoencoderLoss(nn.Module):
     """
 
     def __init__(self):
-        super(AutoencoderLoss, self).__init__()
+        super().__init__()
         self.mse = nn.MSELoss()
 
     def forward(self, x_true: torch.Tensor, x_recon: torch.Tensor) -> torch.Tensor:

@@ -1,13 +1,14 @@
-import logging
 import copy
-import torch
+import logging
 
 logger = logging.getLogger(__name__)
+
 
 class EarlyStopping:
     """
     Early stops the training if validation metric doesn't improve after a given patience.
     """
+
     def __init__(self, patience=5, min_delta=0, mode="min", should_restore=True):
         """
         Args:

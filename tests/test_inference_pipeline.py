@@ -1,9 +1,11 @@
-import pytest
-import polars as pl
 import pickle
 from pathlib import Path
-from src.data.pipeline import run_pipeline
+
+import polars as pl
+import pytest
+
 from src.data.config import DataPipelineConfig
+from src.data.pipeline import run_pipeline
 
 
 @pytest.fixture

@@ -1,7 +1,8 @@
-import torch
-import polars as pl
 import numpy as np
+import polars as pl
 import pytest
+import torch
+
 from src.model.jem.data_utils import ChunkedParquetDataset
 from src.model.jem.scaler import TorchStandardScaler
 
@@ -137,7 +138,7 @@ def test_chunked_parquet_dataset_weights(tmp_path):
     rows = list(dataset)
     # Normalized weights: n / (n_classes * class_count)
     # n=10, n_classes=2, class_0=8, class_1=2
-    for x, y, week, weight in rows:
+    for _x, y, _week, weight in rows:
         if y == 0:
             assert pytest.approx(weight.item()) == 10.0 / (2 * 8)  # = 0.625
         else:
