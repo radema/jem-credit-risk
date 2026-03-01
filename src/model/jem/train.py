@@ -22,16 +22,45 @@ def calculate_gini_stability(
     stability metric = mean(gini) + 88.0 * min(0, a) - 0.5 * std(residuals)
     where a is the slope of the linear regression fit through weekly gini scores.
     """
-    weeks = np.unique(week_nums)
+    if len(week_nums) == 0:
+        return {
+            "stability_metric": 0.0,
+            "mean_gini": 0.0,
+            "falling_rate": 0.0,
+            "std_residuals": 0.0,
+        }
+
+    # Ensure inputs are numpy arrays to handle fancy indexing correctly
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    week_nums = np.asarray(week_nums)
+
+    # Sort indices by week_nums to group them efficiently
+    idx = np.argsort(week_nums)
+    week_nums_sorted = week_nums[idx]
+    y_true_sorted = y_true[idx]
+    y_pred_sorted = y_pred[idx]
+
+    # Find boundaries where week_nums changes
+    diffs = np.diff(week_nums_sorted)
+    boundaries = np.where(diffs != 0)[0] + 1
+    boundaries = np.concatenate(([0], boundaries, [len(week_nums_sorted)]))
+
     ginis = []
     w_list = []
 
-    for w in weeks:
-        mask = week_nums == w
-        if len(np.unique(y_true[mask])) < 2:
-            # Need both classes to calculate AUC
+    for i in range(len(boundaries) - 1):
+        start, end = boundaries[i], boundaries[i + 1]
+        y_true_week = y_true_sorted[start:end]
+        y_pred_week = y_pred_sorted[start:end]
+        w = week_nums_sorted[start]
+
+        # Need both classes to calculate AUC
+        # Faster check than np.unique for binary classification
+        if len(y_true_week) == 0 or np.min(y_true_week) == np.max(y_true_week):
             continue
-        auc = roc_auc_score(y_true[mask], y_pred[mask])
+
+        auc = roc_auc_score(y_true_week, y_pred_week)
         gini = 2 * auc - 1
         ginis.append(gini)
         w_list.append(w)
