@@ -1,11 +1,19 @@
 # System Architecture & Data Flow
 
+## 0. Pipeline Deep-Dive Documentation
+For detailed, step-by-step documentation on each pipeline stage, please refer to the following granular technical specifications:
+
+1. [Data Processing Pipeline](../pipeline/01_data_processing.md) - Deep dive into Polars lazy execution, hybrid chunking, and multi-depth aggregations.
+2. [Autoencoder Training](../pipeline/02_autoencoder_training.md) - Out-of-core scaling, chunked latent dataset generation, and continuous mappings.
+3. [JEM Training](../pipeline/03_jem_training.md) - SGLD replay buffering, contrastive divergence logic, and dual generative/discriminative objectives.
+4. [Inference Engine](../pipeline/04_inference.md) - Strict stateless operations, mapping fixed parameters out-of-fold.
+
 ## 1. Core Components
 
 ### 1.1 Data Engineering Pipeline (Polars)
 * **Goal**: Process and aggregate multi-depth relational tables into a single tabular feature matrix.
 * **Mechanism**: Lazy evaluation engine leveraging predicate pushdown.
-* **Steps**: 
+* **Steps**:
   1. Load Base table and apply stratified sampling (if training).
   2. Perform temporal aggregations (mean, max, var) on Depth 1 & 2 relational tables.
   3. Join aggregated tables onto the Base table grain (`case_id`).
@@ -26,7 +34,7 @@
 > [!NOTE]
 > The SGLD Replay Buffer (fixed 10k samples) is fully compatible with chunked streaming — it receives detached mini-batches and requires no API changes.
 * **Goal**: Provide contrastive negative samples for EBM training.
-* **Mechanism**: 
+* **Mechanism**:
   1. Seeding from a Replay Buffer or random noise (bound by `reinit_freq=0.05`).
   2. Following energy gradients via Langevin Dynamics to find $Z_{fake}$.
 
@@ -112,8 +120,8 @@ graph TD
 
 The pipeline runs inference via `scripts/generate_submission.py` in 4 explicit phases:
 
-1. **Phase 1: Data Pipeline (INFERENCE mode)** 
-   * `is_inference=True`, `sample_ratio=1.0`. 
+1. **Phase 1: Data Pipeline (INFERENCE mode)**
+   * `is_inference=True`, `sample_ratio=1.0`.
    * Uses prefix-mapping replacing `train_` with `test_`.
    * Restores `imputer_state.pkl` without updating it.
 2. **Phase 2: Load Pre-Trained Models**
