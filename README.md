@@ -95,6 +95,22 @@ uv sync
 ```
 
 
+### Code Quality & Development
+
+To ensure high code quality, this project uses `ruff` for linting and formatting, and `pre-commit` for automated checks.
+
+**Install pre-commit hooks:**
+
+```bash
+uv run pre-commit install
+```
+
+**Run hooks manually on all files:**
+
+```bash
+uv run pre-commit run --all-files
+```
+
 ## Data Preparation
 
 Download the Home Credit competition data and place the parquet files in data/raw/.

@@ -2,12 +2,12 @@
 
 ## 1. Overview and Core Concepts
 
-The goal of this project is to predict client loan defaults (`target`) while ensuring the model maintains **feature stability over time**. 
+The goal of this project is to predict client loan defaults (`target`) while ensuring the model maintains **feature stability over time**.
 
 ### Data Nature: Time-Series vs. Static
 While the primary objective is a binary classification, the underlying data is essentially **longitudinal**. It consists of:
 *   **Static Snapshots**: Current attributes of the applicant at the time of decision.
-*   **Historical Records**: Time-distributed events (past applications, credit bureau history, tax records). 
+*   **Historical Records**: Time-distributed events (past applications, credit bureau history, tax records).
 
 Although not a traditional "forecasting" problem, the historical records represent **temporal sequences** that can be aggregated or processed using temporal models (like GNNs or RNNs) to capture behaviors.
 
@@ -90,7 +90,7 @@ df_static = pd.concat([
 The logical tables are separated by their data source and update frequency.
 
 ### Internal Data (Home Credit)
-*   **`base`**: The fundamental table. Contains the `case_id`, `date_decision`, and the `target` (0 for non-default, 1 for default). 
+*   **`base`**: The fundamental table. Contains the `case_id`, `date_decision`, and the `target` (0 for non-default, 1 for default).
 *   **`static_0`** & **`static_cb_0`**: (Depth 0) Static applicant properties at the time of application.
 *   **`applprev_1`**: (Depth 1) Historical internal applications associated with the client.
 *   **`applprev_2`**: (Depth 2) Nested historical details for the applications in `applprev_1`.

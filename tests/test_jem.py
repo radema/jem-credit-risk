@@ -1,13 +1,15 @@
-import torch
-import pytest
+import os
+
 import numpy as np
 import polars as pl
-from src.model.jem.train import calculate_gini_stability, CreditRiskDataset
+import pytest
+import torch
+
 from src.model.jem.config import JEMConfig
-from src.model.jem.scaler import TorchStandardScaler
-from src.model.jem.model import TabularJEM
 from src.model.jem.diagnostics import JEMDiagnostics
-import os
+from src.model.jem.model import TabularJEM
+from src.model.jem.scaler import TorchStandardScaler
+from src.model.jem.train import CreditRiskDataset, calculate_gini_stability
 
 # We will import SGLDReplayBuffer here, but it's not implemented yet.
 try:

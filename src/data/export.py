@@ -1,4 +1,6 @@
+import logging
 import os
+
 import polars as pl
 import logging
 from pathlib import Path

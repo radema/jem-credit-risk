@@ -1,9 +1,8 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from sklearn.calibration import calibration_curve
 from sklearn.decomposition import PCA
-from typing import List, Optional
 
 from src.model.jem.sampler import SGLDReplayBuffer
 
@@ -17,9 +16,9 @@ class JEMDiagnostics:
 
     @staticmethod
     def plot_energy_ranges(
-        e_real_history: List[float],
-        e_fake_history: List[float],
-        save_path: Optional[str] = None,
+        e_real_history: list[float],
+        e_fake_history: list[float],
+        save_path: str | None = None,
     ):
         """
         Plots the average E_real and E_fake trajectories over training steps/epochs.
@@ -40,8 +39,8 @@ class JEMDiagnostics:
     @staticmethod
     def plot_energy_density(
         e_in_dist: np.ndarray,
-        e_out_dist: Optional[np.ndarray] = None,
-        save_path: Optional[str] = None,
+        e_out_dist: np.ndarray | None = None,
+        save_path: str | None = None,
     ):
         """
         Plots the density histogram of energies for in-distribution vs (optional) out-of-distribution.
@@ -84,7 +83,7 @@ class JEMDiagnostics:
         y_true: np.ndarray,
         y_prob: np.ndarray,
         num_bins: int = 10,
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ):
         """
         Plots the calibration curve (reliability diagram) to verify if the JEM
@@ -113,7 +112,7 @@ class JEMDiagnostics:
     def inspect_replay_buffer(
         buffer: SGLDReplayBuffer,
         x_real: torch.Tensor,
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
         n_samples: int = 1000,
     ):
         """

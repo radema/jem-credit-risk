@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import List
 
 from src.data.config import DataPipelineConfig
-from src.data.unpack import extract_relevant_parquets
+from src.data.export import evaluate_eda_stats, export_to_parquet
+from src.data.imputation import handle_missing_and_categoricals
 from src.data.loader import scan_table
 from src.data.sampling import generate_stratified_sample
 from src.data.aggregators import aggregate_depth_1, aggregate_depth_2
@@ -22,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 def run_pipeline(
     config: DataPipelineConfig,
-    depth_0_tables: List[str],
-    depth_1_tables: List[str],
-    depth_2_tables: List[str],
+    depth_0_tables: list[str],
+    depth_1_tables: list[str],
+    depth_2_tables: list[str],
 ):
     """
     Orchestrates the data pipeline using an end-to-end Lazy execution graph.
