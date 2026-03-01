@@ -8,6 +8,24 @@ from src.model.jem.loss import JEMLoss
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
 from src.model.jem.train import train_jem_epoch, get_dataloaders
 
+"""
+Benchmark script for the Joint Energy-Based Model (JEM) training loop.
+
+Scope:
+This script establishes a performance baseline for the `train_jem_epoch` function.
+It measures the time taken to process a single epoch of training using synthetic data.
+This is used to quantify the impact of performance optimizations in the training loop.
+
+Usage:
+    PYTHONPATH=. uv run benchmarks/benchmark_train.py
+
+The script will:
+1. Initialize a TabularJEM model and its associated components (loss, optimizer, sampler, buffer).
+2. Create a synthetic dataset of 100 batches.
+3. Perform a warmup epoch.
+4. Measure and print the total time and average time per batch for a second epoch.
+"""
+
 def main():
     device = torch.device("cpu")
     input_dim = 100
