@@ -6,10 +6,10 @@ import pytest
 import torch
 
 from src.model.jem.config import JEMConfig
+from src.model.jem.data_utils import CreditRiskDataset, calculate_gini_stability
 from src.model.jem.diagnostics import JEMDiagnostics
 from src.model.jem.model import TabularJEM
 from src.model.jem.scaler import TorchStandardScaler
-from src.model.jem.train import CreditRiskDataset, calculate_gini_stability
 
 # We will import SGLDReplayBuffer here, but it's not implemented yet.
 try:
