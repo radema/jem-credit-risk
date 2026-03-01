@@ -49,3 +49,24 @@ def generate_stratified_sample(
 
     # Return strictly the case_ids as a LazyFrame for lazy inner joins downstream
     return sampled_df.select(["case_id"]).lazy()
+
+
+def apply_case_filter(lazy_frame: pl.LazyFrame, valid_cases_df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+    """
+    Filters a LazyFrame to only include rows where the case_id is present in the valid_cases_df.
+
+    Args:
+        lazy_frame: The Polars LazyFrame to filter.
+        valid_cases_df: A Polars DataFrame or LazyFrame containing valid case_ids.
+
+    Returns:
+        A filtered Polars LazyFrame.
+    """
+    if isinstance(valid_cases_df, pl.DataFrame):
+        valid_cases_df = valid_cases_df.lazy()
+
+    # We only need the case_id column for the join
+    valid_cases_df = valid_cases_df.select(["case_id"])
+
+    # Perform an inner join on case_id to efficiently filter the lazy_frame
+    return lazy_frame.join(valid_cases_df, on="case_id", how="inner")
