@@ -50,7 +50,9 @@ class JEMLoss(nn.Module):
         # 2. Generative Loss (Contrastive Divergence)
         # We want p(x_real) to be high (low energy) and p(x_fake) to be low (high energy)
         # L_gen = E(x_real) - E(x_fake)
-        e_real = model.compute_energy(x_real)
+
+        # Optimization: Reuse logits_real to compute e_real instead of a second forward pass
+        e_real = -torch.logsumexp(logits_real, dim=1)
         e_fake = model.compute_energy(x_fake)
 
         gen_loss = e_real.mean() - e_fake.mean()
