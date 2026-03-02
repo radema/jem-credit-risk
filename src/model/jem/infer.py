@@ -70,7 +70,8 @@ def perform_inference(
             # 5. Energy (Optional)
             if return_energies:
                 # TabularJEM compute_energy(z) = -LogSumExp(logits)
-                energies = jem.compute_energy(z)
+                # Optimization: reuse logits to avoid redundant forward pass
+                energies = jem.compute_energy(logits=logits)
                 all_energies.append(energies.cpu().numpy())
 
             # Storage

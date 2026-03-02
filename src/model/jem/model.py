@@ -68,19 +68,26 @@ class TabularJEM(nn.Module):
         """
         return self.net(x)
 
-    def compute_energy(self, x: torch.Tensor) -> torch.Tensor:
+    def compute_energy(
+        self, x: torch.Tensor = None, logits: torch.Tensor = None
+    ) -> torch.Tensor:
         """
         Computes the real energy of the input samples.
         Following the standard formalism for classifier-based JEMs:
         E(x) = -LogSumExp_y( f_theta(x)[y] )
 
         Args:
-            x (torch.Tensor): Input samples of shape (batch_size, input_dim).
+            x (torch.Tensor, optional): Input samples of shape (batch_size, input_dim).
+            logits (torch.Tensor, optional): Pre-computed logits. If provided, `x` is ignored.
 
         Returns:
             torch.Tensor: Energy values of shape (batch_size,).
         """
-        logits = self.forward(x)
+        if logits is None:
+            if x is None:
+                raise ValueError("Either x or logits must be provided.")
+            logits = self.forward(x)
+
         # LogSumExp across the class dimension (dim=1)
         return -torch.logsumexp(logits, dim=1)
 
@@ -117,10 +124,18 @@ class LatentJEMWrapper(nn.Module):
         # 3. Compute logits through JEM
         return self.jem(z)
 
-    def compute_energy(self, x_raw: torch.Tensor) -> torch.Tensor:
+    def compute_energy(
+        self, x_raw: torch.Tensor = None, logits: torch.Tensor = None
+    ) -> torch.Tensor:
         """
         End-to-end energy computation from raw features.
         """
+        if logits is not None:
+            return self.jem.compute_energy(logits=logits)
+
+        if x_raw is None:
+            raise ValueError("Either x_raw or logits must be provided.")
+
         x_scaled = self.scaler.transform(x_raw)
         z = self.encoder(x_scaled)
         return self.jem.compute_energy(z)

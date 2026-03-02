@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from src.model.jem.config import JEMConfig
 
@@ -51,8 +52,6 @@ class JEMLoss(nn.Module):
 
         if sample_weight is not None:
             # Weighted cross-entropy
-            import torch.nn.functional as F
-
             clf_loss = F.cross_entropy(logits_real, y_real, reduction="none")
             clf_loss = (clf_loss * sample_weight.to(clf_loss.device)).mean()
         else:
@@ -63,7 +62,7 @@ class JEMLoss(nn.Module):
         # L_gen = E(x_real) - E(x_fake)
 
         # Optimization: compute e_real from logits_real to avoid redundant forward pass
-        e_real = -torch.logsumexp(logits_real, dim=1)
+        e_real = model.compute_energy(logits=logits_real)
         e_fake = model.compute_energy(x_fake)
 
         gen_loss = e_real.mean() - e_fake.mean()

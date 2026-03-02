@@ -105,7 +105,7 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
             logits = model(x_real)
             probs = torch.softmax(logits, dim=1)[:, 1]
             # Optimization: compute energy from logits to avoid redundant forward pass
-            energies = -torch.logsumexp(logits, dim=1)
+            energies = model.compute_energy(logits=logits)
 
             all_targets.append(y_real.numpy())
             all_preds.append(probs.cpu().numpy())
