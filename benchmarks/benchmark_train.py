@@ -5,10 +5,11 @@ import polars as pl
 import torch
 
 from src.model.jem.config import JEMConfig
+from src.model.jem.data_utils import get_dataloaders
 from src.model.jem.loss import JEMLoss
 from src.model.jem.model import TabularJEM
 from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
-from src.model.jem.train import get_dataloaders, train_jem_epoch
+from src.model.jem.train import train_jem_epoch
 
 """
 Benchmark script for the Joint Energy-Based Model (JEM) training loop.
