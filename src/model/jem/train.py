@@ -69,14 +69,18 @@ def train_jem_epoch(
         # Optimization: use logits_real from loss_dict to avoid redundant forward pass
         logits = loss_dict["logits_real"].detach()
         probs = torch.softmax(logits, dim=1)[:, 1]  # Probability of Class 1
-        all_targets.append(y_real.cpu().numpy())
-        all_preds.append(probs.cpu().numpy())
-        all_weeks.append(weeks.numpy())
+        all_targets.append(y_real.detach())
+        all_preds.append(probs)
+        all_weeks.append(weeks)
 
     num_batches = _batch_idx + 1  # Works with both map-style and iterable loaders
-    all_targets = np.concatenate(all_targets)
-    all_preds = np.concatenate(all_preds)
-    all_weeks = np.concatenate(all_weeks)
+    all_targets = torch.cat(all_targets).cpu().numpy()
+    all_preds = torch.cat(all_preds).cpu().numpy()
+    all_weeks = (
+        torch.cat(all_weeks).cpu().numpy()
+        if isinstance(all_weeks[0], torch.Tensor)
+        else np.concatenate(all_weeks)
+    )
 
     stability_metrics = calculate_gini_stability(all_targets, all_preds, all_weeks)
 
@@ -107,15 +111,23 @@ def evaluate_jem(model: TabularJEM, loader: DataLoader, device: torch.device) ->
             # Optimization: compute energy from logits to avoid redundant forward pass
             energies = -torch.logsumexp(logits, dim=1)
 
-            all_targets.append(y_real.numpy())
-            all_preds.append(probs.cpu().numpy())
-            all_weeks.append(weeks.numpy())
-            all_energies.append(energies.cpu().numpy())
+            all_targets.append(y_real)
+            all_preds.append(probs)
+            all_weeks.append(weeks)
+            all_energies.append(energies)
 
-    all_targets = np.concatenate(all_targets)
-    all_preds = np.concatenate(all_preds)
-    all_weeks = np.concatenate(all_weeks)
-    all_energies = np.concatenate(all_energies)
+    all_targets = (
+        torch.cat(all_targets).cpu().numpy()
+        if isinstance(all_targets[0], torch.Tensor)
+        else np.concatenate(all_targets)
+    )
+    all_preds = torch.cat(all_preds).cpu().numpy()
+    all_weeks = (
+        torch.cat(all_weeks).cpu().numpy()
+        if isinstance(all_weeks[0], torch.Tensor)
+        else np.concatenate(all_weeks)
+    )
+    all_energies = torch.cat(all_energies).cpu().numpy()
 
     stability_metrics = calculate_gini_stability(all_targets, all_preds, all_weeks)
 
