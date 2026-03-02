@@ -1,8 +1,10 @@
-import torch
 import time
-import numpy as np
-from src.model.jem.model import TabularJEM
+
+import torch
+
 from src.model.jem.config import JEMConfig
+from src.model.jem.model import TabularJEM
+
 
 def benchmark():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,8 +24,8 @@ def benchmark():
     # Case 1: Redundant forward pass
     start = time.time()
     for _ in range(50):
-        logits = model(x)
-        energy = model.compute_energy(x)
+        _ = model(x)
+        _ = model.compute_energy(x)
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     end = time.time()
     redundant_time = end - start
@@ -33,7 +35,7 @@ def benchmark():
     start = time.time()
     for _ in range(50):
         logits = model(x)
-        energy = -torch.logsumexp(logits, dim=1)
+        _ = -torch.logsumexp(logits, dim=1)
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     end = time.time()
     optimized_time = end - start
@@ -41,6 +43,7 @@ def benchmark():
 
     improvement = (redundant_time - optimized_time) / redundant_time * 100
     print(f"Improvement: {improvement:.2f}%")
+
 
 if __name__ == "__main__":
     benchmark()
