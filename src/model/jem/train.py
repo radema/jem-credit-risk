@@ -29,9 +29,7 @@ def train_jem_epoch(
     total_loss, clf_loss, gen_loss, l2_loss = 0.0, 0.0, 0.0, 0.0
     all_targets, all_preds, all_weeks = [], [], []
 
-    num_batches = 0
     for _batch_idx, batch in enumerate(loader):
-        num_batches += 1
         if len(batch) == 4:
             x_real, y_real, weeks, sample_weight = batch
         else:
@@ -75,7 +73,7 @@ def train_jem_epoch(
         all_preds.append(probs.cpu().numpy())
         all_weeks.append(weeks.numpy())
 
-    # num_batches is now tracked via counter
+    num_batches = _batch_idx + 1  # Works with both map-style and iterable loaders
     all_targets = np.concatenate(all_targets)
     all_preds = np.concatenate(all_preds)
     all_weeks = np.concatenate(all_weeks)

@@ -49,6 +49,8 @@ graph TD;
 
     DataLoader -->|Unsupervised Path| EnergyLoss
     RealZ --> EnergyLoss
+    RealZ -->|Evaluate| EarlyStop[Early Stopping]
+    EarlyStop -->|Trigger| RealZ
 
     GenZ_Start -->|SGLD Steps| SGLD
     SGLD --> GenZ_End
@@ -95,7 +97,13 @@ Instead of randomizing completely unstructured noise every step, JEM uses an `SG
 3. Contrastive divergence computes the distance between Real Sample energies ($z$) against Synthetic Sample energies ($x_k$).
 4. The synthesized values are then deposited back into the replay buffer to be chained onto in future iterations.
 
-## Model Persistence
+## Early Stopping & Model Persistence
+To ensure optimal downstream performance, JEM training monitors the **Validation Stability (Gini)** metric.
+- **Monitored Metric:** `stability` (Validation Gini).
+- **Mode:** `max` (stops when Gini stops increasing).
+- **Patience:** 5 epochs.
+- **Weight Restoration:** The model automatically restores weights from the epoch with the highest Gini score before final packaging.
+
 Because of the heavy optimization cost, training generates model checkpoints frequently. Upon reaching maximum epochs or convergence triggers, it exports the `jem_model.pt` weights directly into the active artifact repository where it can be consumed dynamically by the Inference engine.
 
 ---

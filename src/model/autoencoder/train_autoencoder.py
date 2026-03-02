@@ -21,6 +21,7 @@ from src.model.jem.data_utils import (
     split_data_chronologically,
 )
 from src.model.jem.scaler import TorchStandardScaler
+from src.utils.callbacks import EarlyStopping
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -231,6 +232,7 @@ def _train_chunked(
         device
     )
     optimizer = optim.Adam(autoencoder.parameters(), lr=lr, weight_decay=weight_decay)
+    early_stopping = EarlyStopping(patience=5, mode="min")
 
     # 6. Training loop
     logger.info("Starting Autoencoder Pre-training (chunked mode)...")
@@ -273,6 +275,13 @@ def _train_chunked(
         logger.info(
             f"Epoch [{epoch:02d}/{epochs}] | Train MSE: {avg_train_loss:.4f} | Val MSE: {avg_val_loss:.4f}"
         )
+
+        if early_stopping(avg_val_loss, autoencoder):
+            logger.info(f"Early stopping triggered at epoch {epoch}")
+            break
+
+    # Restore best weights
+    early_stopping.restore_best_weights(autoencoder)
 
     # 7. Save artifacts
     _save_artifacts(autoencoder, scaler)
@@ -342,6 +351,7 @@ def _train_in_memory(
     )
     criterion = AutoencoderLoss()
     optimizer = optim.Adam(autoencoder.parameters(), lr=lr, weight_decay=weight_decay)
+    early_stopping = EarlyStopping(patience=5, mode="min")
 
     # Training loop
     logger.info("Starting Autoencoder Pre-training (in-memory mode)...")
@@ -378,6 +388,13 @@ def _train_in_memory(
         logger.info(
             f"Epoch [{epoch:02d}/{epochs}] | Train MSE: {avg_train_loss:.4f} | Val MSE: {avg_val_loss:.4f}"
         )
+
+        if early_stopping(avg_val_loss, autoencoder):
+            logger.info(f"Early stopping triggered at epoch {epoch}")
+            break
+
+    # Restore best weights
+    early_stopping.restore_best_weights(autoencoder)
 
     # Save artifacts
     _save_artifacts(autoencoder, scaler)

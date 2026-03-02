@@ -103,6 +103,9 @@ def load_inference_pipeline(
     """
     import os
 
+    if device is None:
+        device = torch.device("cpu")
+
     # 1. Scaler
     scaler_path = os.path.join(artifact_dir, "scaler.pth")
     if os.path.exists(scaler_path):

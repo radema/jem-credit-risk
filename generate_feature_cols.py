@@ -6,6 +6,9 @@ from src.model.jem.data_utils import get_dataloaders, split_data_chronologically
 
 
 def main():
+    # Change working directory so relative paths work from project root
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
     print("Generating feature_cols.json...")
     cfg = DataPipelineConfig(
         data_dir="data/raw/home-credit-credit-risk-model-stability.zip",
