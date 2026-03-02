@@ -46,7 +46,7 @@ def extract_relevant_parquets(zip_path: str, cache_dir: str = ".cache") -> str:
                 # We need to extract the specific file and write it flat to the cache_dir
                 logger.debug(f"Extracting {file} to {target_path}")
                 with archive.open(file) as source, open(target_path, "wb") as target:
-                    shutil.copyfileobj(source, target)
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
                 extracted_count += 1
 
     logger.info(f"Successfully extracted {extracted_count} matching files.")
