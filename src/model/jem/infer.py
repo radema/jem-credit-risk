@@ -75,17 +75,21 @@ def perform_inference(
 
             # Storage
             if torch.is_tensor(case_ids):
-                all_case_ids.extend(case_ids.cpu().tolist())
+                all_case_ids.append(case_ids.cpu().numpy())
             else:
-                all_case_ids.extend(case_ids)
+                all_case_ids.append(np.array(case_ids))
 
     # Consolidate results
+    # Use np.concatenate and convert to list once to avoid repeated .extend() overhead
+    all_case_ids_arr = np.concatenate(all_case_ids)
+    final_case_ids = all_case_ids_arr.tolist()
+
     final_probs = np.concatenate(all_probs)
     final_energies = np.concatenate(all_energies) if return_energies else None
 
-    logger.info(f"Inference Loop complete. Processed {len(all_case_ids)} samples.")
+    logger.info(f"Inference Loop complete. Processed {len(final_case_ids)} samples.")
 
-    return all_case_ids, final_probs, final_energies
+    return final_case_ids, final_probs, final_energies
 
 
 def load_inference_pipeline(
