@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pickle
+from collections import defaultdict
 from pathlib import Path
 
 import polars as pl
@@ -63,7 +64,7 @@ def run_pipeline(
 
     # Store depth 1 aggregations dynamically
     # Group depth-2 aggregations by parent depth-1 table
-    d2_aggs_by_parent = {}
+    d2_aggs_by_parent = defaultdict(list)
 
     # 2. Process Depth 2
     for d2_table in d2_tables:
@@ -84,8 +85,6 @@ def run_pipeline(
 
         # Mapping depth 2 to depth 1 (e.g., 'train_person_2' -> 'train_person_1')
         parent_table = d2_table.replace("_2", "_1")
-        if parent_table not in d2_aggs_by_parent:
-            d2_aggs_by_parent[parent_table] = []
         d2_aggs_by_parent[parent_table].append(agg_d2)
 
     lazy_tables_to_join = []
@@ -149,9 +148,7 @@ def run_pipeline(
     # Post-join: fill joined flags with 0
     flag_cols = [c for c in final_df.columns if c.endswith("_joined_flag")]
     if flag_cols:
-        final_df = final_df.with_columns(
-            [pl.col(c).fill_null(0).cast(pl.Int8) for c in flag_cols]
-        )
+        final_df = final_df.with_columns(pl.col(flag_cols).fill_null(0).cast(pl.Int8))
 
     # 6. Imputation & Categorical Encoding
     artifact_dir = Path(config.artifact_dir)
