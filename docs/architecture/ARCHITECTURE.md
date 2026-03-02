@@ -1,13 +1,5 @@
 # System Architecture & Data Flow
 
-## 0. Pipeline Deep-Dive Documentation
-For detailed, step-by-step documentation on each pipeline stage, please refer to the following granular technical specifications:
-
-1. [Data Processing Pipeline](../pipeline/01_data_processing.md) - Deep dive into Polars lazy execution, hybrid chunking, and multi-depth aggregations.
-2. [Autoencoder Training](../pipeline/02_autoencoder_training.md) - Out-of-core scaling, chunked latent dataset generation, and continuous mappings.
-3. [JEM Training](../pipeline/03_jem_training.md) - SGLD replay buffering, contrastive divergence logic, and dual generative/discriminative objectives.
-4. [Inference Engine](../pipeline/04_inference.md) - Strict stateless operations, mapping fixed parameters out-of-fold.
-
 ## 1. Core Components
 
 ### 1.1 Data Engineering Pipeline (Polars)

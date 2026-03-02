@@ -2,7 +2,7 @@ import os
 
 import polars as pl
 
-from src.model.jem.data_utils import get_dataloaders
+from src.model.jem.train import get_dataloaders
 
 parquet_path = "data/processed/train_features_unscaled.parquet"
 
