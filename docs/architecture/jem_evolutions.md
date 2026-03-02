@@ -18,7 +18,7 @@ We resolve the categorical anomaly by remapping the tabular space onto an intrin
 
 ### 2.2 Evolution C: Hybrid Contrastive Seeding (Current Mitigation Backup)
 A purely parameters-based heuristic preventing chain escapes.
-* **Mechanism**: 
+* **Mechanism**:
   1. Constrain SGLD chain length (`sgld_steps < 10`).
   2. Increase buffer reset probability (`reinit_freq > 0.5`).
   3. Form initialization states by attaching a minor noise epsilon strictly onto known real training points.

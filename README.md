@@ -72,7 +72,7 @@ Sampling: "Fake" data points are generated to compute Contrastive Divergence usi
 │       ├── scaler.pt        # TorchStandardScaler state
 │       ├── encoder.pt       # Autoencoder encoder weights
 │       └── feature_cols.json
-├── docs/                    
+├── docs/
 │   ├── architecture/        # ARCHITECTURE.md and THEORY.md
 │   ├── data/                # data_dictionary.md, PIPELINE.md
 │   └── planning/            # ROADMAP.md

@@ -49,7 +49,7 @@ test_cfg = DataPipelineConfig(
 # Ensure architecture matches training exactly
 jem_config = JEMConfig(
     artifact_dir=MY_ARTIFACTS,
-    hidden_dims=[256, 256] 
+    hidden_dims=[256, 256]
 )
 ```
 

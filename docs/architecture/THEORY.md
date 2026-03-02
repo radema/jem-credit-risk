@@ -9,7 +9,7 @@ $$p_\theta(x) = \frac{\exp(-E_\theta(x))}{Z(\theta)}$$
 * **Optimization**: Pursues contrastive divergence. Drops energy of observed data whilst deliberately lifting energy of generated samples.
 
 ## 2. JEM Reinterpretation
-JEM re-evaluates typical discriminative categorization, extracting generative priors from existing logic. 
+JEM re-evaluates typical discriminative categorization, extracting generative priors from existing logic.
 
 * **The LogSumExp Link**:
   $$E_\theta(x) = -\log \sum_y \exp(f_\theta(x)[y])$$
@@ -29,17 +29,17 @@ Iterative process utilized to generate fake bounds $x_{fake}$ necessary for the 
 graph LR
     R[Real Data] --> F[f_theta]
     N[Fake SGLD] --> F
-    
+
     F --> C[Logits]
-    
+
     C --> S[Softmax]
     C --> L[-LogSumExp]
-    
+
     S --> P[Classification Loss p y|x]
     L --> E[Energy Representation E x]
-    
+
     E --> V[EBM Contrastive Loss]
-    
+
     P --> T((Total Loss))
     V --> T
 ```
