@@ -37,4 +37,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Change working directory so relative paths work from project root
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     main()

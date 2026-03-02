@@ -96,6 +96,8 @@ def load_inference_pipeline(
     jem_config,
     device: torch.device | None = None,
 ) -> tuple[TorchStandardScaler, TabularAutoencoder, TabularJEM]:
+    if device is None:
+        device = torch.device("cpu")
     """
     Helper to instantiate and load weights for the full inference stack.
     """
