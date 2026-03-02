@@ -1,18 +1,21 @@
-import torch
-import numpy as np
-import polars as pl
 import json
 import random
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Any
+from typing import Any
+
+import numpy as np
+import polars as pl
+import torch
 from sklearn.metrics import roc_auc_score
 from torch.utils.data import (
-    Dataset,
     DataLoader,
-    WeightedRandomSampler,
-    TensorDataset,
+    Dataset,
     IterableDataset,
+    TensorDataset,
+    WeightedRandomSampler,
 )
+
 from src.model.jem.scaler import TorchStandardScaler
 
 
@@ -126,7 +129,7 @@ def load_feature_cols(artifact_dir: str) -> list[str]:
             f"Feature columns file not found at {feature_cols_path}. "
             "Ensure training has been run with the updated pipeline."
         )
-    with open(feature_cols_path, "r") as f:
+    with open(feature_cols_path) as f:
         return json.load(f)
 
 

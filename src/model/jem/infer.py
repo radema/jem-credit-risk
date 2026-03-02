@@ -1,10 +1,11 @@
-import torch
-import numpy as np
 import logging
+
+import numpy as np
+import torch
 from torch.utils.data import DataLoader
-from typing import Tuple, List, Optional
-from src.model.jem.model import TabularJEM
+
 from src.model.autoencoder.model import TabularAutoencoder
+from src.model.jem.model import TabularJEM
 from src.model.jem.scaler import TorchStandardScaler
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ def perform_inference(
     loader: DataLoader,
     device: torch.device,
     return_energies: bool = False,
-) -> Tuple[List[int], np.ndarray, Optional[np.ndarray]]:
+) -> tuple[list[int], np.ndarray, np.ndarray | None]:
     """
     Runs an end-to-end inference loop over a DataLoader.
     Ensures memory efficiency by processing in batches and performing
@@ -93,8 +94,10 @@ def load_inference_pipeline(
     latent_dim: int,
     num_classes: int,
     jem_config,
-    device: torch.device = torch.device("cpu"),
-) -> Tuple[TorchStandardScaler, TabularAutoencoder, TabularJEM]:
+    device: torch.device | None = None,
+) -> tuple[TorchStandardScaler, TabularAutoencoder, TabularJEM]:
+    if device is None:
+        device = torch.device("cpu")
     """
     Helper to instantiate and load weights for the full inference stack.
     """

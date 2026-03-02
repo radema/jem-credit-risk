@@ -1,7 +1,9 @@
-import torch
-import polars as pl
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import polars as pl
+import torch
+
 from src.model.autoencoder.model import TabularAutoencoder
 from src.model.autoencoder.train_autoencoder import generate_latent_chunks
 from src.model.jem.scaler import TorchStandardScaler

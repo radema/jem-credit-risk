@@ -9,10 +9,11 @@ The test creates 3 synthetic Parquet chunks, fits a scaler via full tensor
 fit() and another via streaming_fit(), then asserts allclose(rtol=1e-5).
 """
 
-import torch
+from pathlib import Path
+
 import polars as pl
 import pytest
-from pathlib import Path
+import torch
 
 from src.model.jem.scaler import TorchStandardScaler
 

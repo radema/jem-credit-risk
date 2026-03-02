@@ -7,17 +7,18 @@ Verifies that the chunked training path in train_autoencoder.py correctly:
 - Saves encoder and scaler artifacts
 """
 
-import torch
-import polars as pl
-import numpy as np
-import pytest
 from pathlib import Path
+
+import numpy as np
+import polars as pl
+import pytest
+import torch
 from torch.utils.data import DataLoader
 
-from src.model.autoencoder.model import TabularAutoencoder, AutoencoderLoss
+from src.model.autoencoder.model import TabularAutoencoder
 from src.model.autoencoder.train_autoencoder import (
-    weighted_mse_loss,
     _discover_chunks,
+    weighted_mse_loss,
 )
 from src.model.jem.data_utils import ChunkedParquetDataset
 from src.model.jem.scaler import TorchStandardScaler
@@ -116,7 +117,7 @@ def test_chunked_ae_training_loop(tmp_path):
 
     # Verify training ran and loss decreased (or at least didn't explode)
     assert len(losses) == 2
-    assert all(l > 0 for l in losses)
+    assert all(loss_val > 0 for loss_val in losses)
     # Loss should decrease or remain reasonable
     assert losses[-1] < losses[0] * 2  # not exploding
 

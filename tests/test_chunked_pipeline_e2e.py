@@ -1,30 +1,26 @@
+import resource
+
+import numpy as np
+import polars as pl
 import pytest
 import torch
-import polars as pl
-import numpy as np
-import os
-import resource
-import shutil
-from pathlib import Path
 from torch.utils.data import DataLoader
 
 from src.data.export import export_to_chunked_parquet
-from src.model.jem.scaler import TorchStandardScaler
-from src.model.jem.data_utils import (
-    ChunkedParquetDataset,
-    ChunkedLatentDataset,
-    prepare_raw_dataframe,
-    split_data_chronologically,
-)
 from src.model.autoencoder.model import TabularAutoencoder
 from src.model.autoencoder.train_autoencoder import (
-    weighted_mse_loss,
     generate_latent_chunks,
+    weighted_mse_loss,
 )
-from src.model.jem.model import TabularJEM
 from src.model.jem.config import JEMConfig
-from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
+from src.model.jem.data_utils import (
+    ChunkedLatentDataset,
+    ChunkedParquetDataset,
+)
 from src.model.jem.loss import JEMLoss
+from src.model.jem.model import TabularJEM
+from src.model.jem.sampler import SGLDReplayBuffer, SGLDSampler
+from src.model.jem.scaler import TorchStandardScaler
 from src.model.jem.train import train_jem_epoch
 
 
@@ -95,7 +91,7 @@ class TestChunkedPipelineE2E:
 
         # Verify dataset yields correctly
         all_rows = []
-        for x, y, week, weight in train_loader:
+        for x, _y, _week, _weight in train_loader:
             all_rows.append(x)
         assert torch.cat(all_rows).shape[0] == 1000
 
@@ -186,7 +182,7 @@ class TestChunkedPipelineE2E:
             )
             loader = DataLoader(dataset, batch_size=32)
 
-            ae = TabularAutoencoder(input_dim=len(setup["feature_cols"]), latent_dim=4)
+            TabularAutoencoder(input_dim=len(setup["feature_cols"]), latent_dim=4)
             dataset.set_epoch(0)
 
             # Sum of first batch features to check order
