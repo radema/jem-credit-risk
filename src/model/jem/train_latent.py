@@ -29,9 +29,9 @@ def main():
     config = JEMConfig(
         hidden_dims=[256, 128],
         spectral_norm=True,
-        sgld_steps=10,
-        sgld_step_size=0.01,
-        sgld_sigma=0.01,
+        sgld_steps=20,  # A bit more steps per epoch
+        sgld_step_size=0.001,  # 10x smaller
+        sgld_sigma=0.001,  # 10x smaller
         l2_energy_weight=1e-4,
     )
 

@@ -157,6 +157,11 @@ class SGLDSampler:
 
             # Update x_fake: x = x - (step_size/2) * dE/dx + noise
             # This moves x towards lower energy regions (higher probability)
+
+            # --> ADDED GRADIENT CLIPPING <--
+            # Robust defense against gradient explosion in unconstrained latent spaces
+            grad = torch.clamp(grad, -0.01, 0.01)
+
             noise = torch.randn_like(x_fake) * self.config.sgld_sigma
 
             # Using .data to avoid tracking the update itself in the autograd graph
