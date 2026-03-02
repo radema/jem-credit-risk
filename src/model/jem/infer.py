@@ -65,23 +65,24 @@ def perform_inference(
             # JEM outputs unnormalized logits for each class.
             # We apply Softmax to get probabilities and select class 1 (Credit Default).
             probs = torch.softmax(logits, dim=1)[:, 1]
-            all_probs.append(probs.cpu().numpy())
+            all_probs.append(probs)
 
             # 5. Energy (Optional)
             if return_energies:
+                # Optimization: compute energy from logits to avoid redundant forward pass
                 # TabularJEM compute_energy(z) = -LogSumExp(logits)
-                energies = jem.compute_energy(z)
-                all_energies.append(energies.cpu().numpy())
+                energies = -torch.logsumexp(logits, dim=1)
+                all_energies.append(energies)
 
             # Storage
             if torch.is_tensor(case_ids):
-                all_case_ids.extend(case_ids.cpu().tolist())
+                all_case_ids.extend(case_ids.tolist())
             else:
                 all_case_ids.extend(case_ids)
 
     # Consolidate results
-    final_probs = np.concatenate(all_probs)
-    final_energies = np.concatenate(all_energies) if return_energies else None
+    final_probs = torch.cat(all_probs).cpu().numpy()
+    final_energies = torch.cat(all_energies).cpu().numpy() if return_energies else None
 
     logger.info(f"Inference Loop complete. Processed {len(all_case_ids)} samples.")
 
